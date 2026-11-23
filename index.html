@@ -3,36 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>我的导航</title>
-<meta name="description" content="常用网站快捷入口">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6df6'/%3E%3Cpath d='M20 40V24h10a8 8 0 0 1 0 16H20z' fill='none' stroke='white' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>我的喵喵</title>
+<meta name="description" content="喵喵的常用网站快捷入口">
+<meta name="theme-color" content="#1b2233">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f06aa0'/%3E%3Ccircle cx='24' cy='27' r='3.2' fill='white'/%3E%3Ccircle cx='40' cy='27' r='3.2' fill='white'/%3E%3Cpath d='M32 35c-4 0-7 2.6-7 5.2 0 2.6 3.1 4.8 7 4.8s7-2.2 7-4.8c0-2.6-3-5.2-7-5.2z' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg-1: #eef4ff;
-    --bg-2: #f7f9fc;
-    --card: rgba(255, 255, 255, .78);
-    --line: rgba(24, 39, 75, .08);
-    --text: #16233a;
-    --muted: #6b7a95;
-    --brand: #2f6df6;
+    --text: #ffffff;
+    --muted: rgba(255, 255, 255, .74);
+    --card: rgba(255, 255, 255, .17);
+    --line: rgba(255, 255, 255, .28);
+    --brand: #ff9ec7;
     --radius: 20px;
   }
 
   * { box-sizing: border-box; }
 
-  html { height: 100%; background-color: #eef3fa; }
+  html {
+    height: 100%;
+    background-color: #1b2233;   /* 图片加载前的底色，避免白闪 */
+  }
 
-  /* 固定铺满视口的背景层：无论窗口多高都不会露白边 */
+  /* 背景照片层 */
   body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background-image: url("bg.jpg");
+    background-size: cover;
+    background-position: center 22%;
+    background-repeat: no-repeat;
+  }
+
+  /* 压暗层：保证白色文字在照片上依然清楚 */
+  body::after {
     content: "";
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(900px 520px at 12% -10%, #d9e6ff 0%, transparent 62%),
-      radial-gradient(820px 500px at 92% 0%, #ddf3ea 0%, transparent 58%),
-      linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 55%, #eef3fa 100%);
+      linear-gradient(180deg, rgba(11, 16, 28, .40) 0%, rgba(11, 16, 28, .24) 38%, rgba(11, 16, 28, .70) 100%),
+      radial-gradient(120% 90% at 50% 0%, rgba(255, 158, 199, .10) 0%, transparent 55%);
   }
 
   body {
@@ -42,7 +55,6 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
                  "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
     color: var(--text);
-    background: transparent;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -59,30 +71,33 @@
   header { text-align: center; margin-bottom: 34px; }
 
   .avatar {
-    width: 62px; height: 62px;
+    width: 64px; height: 64px;
     margin: 0 auto 18px;
-    border-radius: 18px;
+    border-radius: 20px;
     display: grid; place-items: center;
-    font-size: 26px; font-weight: 700; color: #fff;
-    background: linear-gradient(135deg, #4b8bff, #2f6df6 60%, #1f4fd0);
-    box-shadow: 0 10px 26px rgba(47, 109, 246, .32);
+    font-size: 28px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, #ffa9cd, #f06aa0 60%, #d94f87);
+    box-shadow: 0 12px 30px rgba(240, 106, 160, .40), inset 0 1px 0 rgba(255, 255, 255, .35);
   }
 
   h1 {
     margin: 0 0 8px;
-    font-size: clamp(24px, 5vw, 32px);
-    letter-spacing: .5px;
+    font-size: clamp(24px, 5vw, 34px);
+    letter-spacing: 2px;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, .45);
   }
 
   .sub {
     margin: 0;
     color: var(--muted);
     font-size: 14px;
+    letter-spacing: .5px;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, .4);
   }
 
   .links {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
     gap: 16px;
   }
 
@@ -96,17 +111,18 @@
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 8px 24px rgba(24, 39, 75, .06);
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .18);
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
   }
 
   .link-card:hover,
   .link-card:focus-visible {
     transform: translateY(-3px);
-    border-color: rgba(47, 109, 246, .35);
-    box-shadow: 0 16px 34px rgba(24, 39, 75, .13);
+    background: rgba(255, 255, 255, .20);
+    border-color: rgba(255, 158, 199, .65);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .25);
     outline: none;
   }
 
@@ -118,7 +134,7 @@
     border-radius: 14px;
     display: grid; place-items: center;
     background: #fff;
-    box-shadow: 0 4px 12px rgba(24, 39, 75, .10);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .22);
   }
 
   .icon svg { width: 26px; height: 26px; display: block; }
@@ -131,6 +147,7 @@
     font-weight: 600;
     margin: 0 0 3px;
     line-height: 1.3;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .35);
   }
 
   .meta .desc {
@@ -145,7 +162,7 @@
 
   .arrow {
     margin-left: auto;
-    color: #b8c4d8;
+    color: rgba(255, 255, 255, .55);
     font-size: 16px;
     transition: color .18s ease, transform .18s ease;
   }
@@ -159,20 +176,28 @@
     margin-top: 40px;
     text-align: center;
     font-size: 12.5px;
-    color: var(--muted);
+    color: rgba(255, 255, 255, .60);
+    letter-spacing: .5px;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, .4);
+  }
+
+  @media (max-width: 640px) {
+    /* 手机上用体积更小的背景图，加载更快 */
+    body::before { background-image: url("bg-small.jpg"); }
   }
 
   @media (max-width: 420px) {
     body { padding: 28px 16px; }
     .link-card { padding: 15px; }
+    .avatar { width: 56px; height: 56px; border-radius: 18px; font-size: 24px; }
   }
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <div class="avatar">导</div>
-      <h1>我的导航</h1>
+      <div class="avatar">喵</div>
+      <h1>我的喵喵</h1>
       <p class="sub">常用网站，一键直达</p>
     </header>
 
@@ -216,7 +241,7 @@
     </nav>
 
     <footer>
-      <span id="year">2026</span> · 我的个人导航页
+      <span id="year">2026</span> · 我的喵喵
     </footer>
   </div>
 
