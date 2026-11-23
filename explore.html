@@ -41,8 +41,9 @@
       <!-- 左侧：搜索 + 地图 -->
       <div>
 
-        <!-- 搜索行：输入框 + 门户下拉 -->
+        <!-- 第一行：搜索框 + 类型下拉 + 平台下拉 -->
         <div class="search-row">
+
           <div class="search-bar">
             <input
               id="searchInput"
@@ -55,17 +56,31 @@
             <button id="searchClear" class="search-clear" type="button" title="清空全部条件" aria-label="清空全部条件">&#10005;</button>
           </div>
 
-          <!-- 门户下拉 -->
-          <div class="portal-dropdown">
-            <button id="portalSelect" class="portal-trigger" type="button" aria-expanded="false" aria-haspopup="listbox">
-              <span class="trigger-label">去这里搜</span>
-              <span id="portalQuery" class="trigger-query" hidden></span>
-              <svg class="trigger-caret" viewBox="0 0 10 6" aria-hidden="true">
+          <!-- 类型下拉 -->
+          <div class="dropdown" id="catDropdownWrap">
+            <button id="catSelect" class="dd-trigger" type="button" aria-expanded="false" aria-haspopup="listbox">
+              <span class="dd-label">类型</span>
+              <span id="catCurrent" class="dd-current">全部</span>
+              <svg class="dd-caret" viewBox="0 0 10 6" aria-hidden="true">
                 <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <div id="portalPanel" class="portal-panel" hidden>
-              <p class="panel-hint">选一个平台，跳转到已填好查询词的搜索页</p>
+            <div id="catPanel" class="dd-panel dd-panel-sm" hidden>
+              <div id="catList" class="dd-list"></div>
+            </div>
+          </div>
+
+          <!-- 平台下拉 -->
+          <div class="dropdown" id="portalDropdownWrap">
+            <button id="portalSelect" class="dd-trigger" type="button" aria-expanded="false" aria-haspopup="listbox">
+              <span id="portalCurIcon" class="dd-cur-icon" hidden></span>
+              <span class="dd-label">搜索</span>
+              <svg class="dd-caret" viewBox="0 0 10 6" aria-hidden="true">
+                <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div id="portalPanel" class="dd-panel" hidden>
+              <p class="panel-hint">选一个平台，在新标签页打开已填好查询词的搜索页</p>
               <div id="portalPanelList" class="panel-list"></div>
             </div>
           </div>
@@ -86,7 +101,7 @@
           <p class="map-tip">点国家进入 &middot; 再点省份</p>
         </div>
 
-        <!-- 快捷图标行 -->
+        <!-- 快捷入口：一行 -->
         <div class="quick-row">
           <span id="portalEmpty" class="quick-hint">选好地区或输入关键词后，这里会出现各平台的搜索入口</span>
           <div id="portalIconRow" class="quick-icons" hidden></div>
@@ -94,10 +109,18 @@
 
       </div>
 
-      <!-- 右侧：类型 -->
+      <!-- 右侧：热搜榜 -->
       <aside class="side-panel">
-        <h2 class="side-title">内容类型</h2>
-        <div id="catList" class="cat-list"></div>
+        <div class="hot-head">
+          <h2 class="side-title">热搜榜</h2>
+          <span id="hotUpdated" class="hot-updated"></span>
+        </div>
+
+        <div id="hotList" class="hot-list">
+          <p class="hot-loading">加载中…</p>
+        </div>
+
+        <p class="hot-foot">数据来自百度热搜，点击跳转</p>
       </aside>
 
     </div>
@@ -119,6 +142,7 @@
 <script src="assets/cities.js"></script>
 <script src="assets/portals.js"></script>
 <script src="assets/subdivisions.js"></script>
+<script src="assets/hot-news.js"></script>
 <script src="assets/explore.js"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
