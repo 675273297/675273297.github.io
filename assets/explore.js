@@ -1,9 +1,11 @@
 /**
- * 慢岛生活 · 探索页逻辑
+ * 慢岛生活 · 探索页逻辑（v2）
  *
- * 交互流程：
- *   点地图选国家 → 可再点城市 → 选类型 → 输关键词
- *   → 组合成查询词 → 生成各门户的预填搜索链接
+ * 交互：
+ *   世界地图 → 点击国家 → 下钻到该国省/州 → 点击省 → 选中
+ *   顶部搜索框 + 右侧类型 + 搜索栏旁的门户下拉框
+ *
+ * 下钻只对有省级数据的国家生效（SUBDIVISIONS 里有的），其余国家直接选中。
  */
 (function () {
   'use strict';
@@ -12,14 +14,18 @@
   var cities = window.CITIES || [];
   var portals = window.PORTALS || [];
   var categories = window.CATEGORIES || [];
+  var subs = window.SUBDIVISIONS || {};
 
   if (!map) return;
 
+  var NS = 'http://www.w3.org/2000/svg';
+
   // ---------- 状态 ----------
   var state = {
+    level: 'world',      // 'world' | 'sub'
     countryCode: null,
     countryName: null,
-    cityName: null,
+    subName: null,       // 省/州名
     categoryId: 'all',
     keyword: '',
   };
@@ -30,144 +36,235 @@
   var catListEl = document.getElementById('catList');
   var searchInput = document.getElementById('searchInput');
   var searchClear = document.getElementById('searchClear');
-  var portalGridEl = document.getElementById('portalGrid');
   var portalQueryEl = document.getElementById('portalQuery');
-  var portalHintEl = document.getElementById('portalHint');
+  var breadcrumbEl = document.getElementById('breadcrumb');
+  var backBtn = document.getElementById('mapBack');
+  var portalSelect = document.getElementById('portalSelect');
+  var portalIconRow = document.getElementById('portalIconRow');
+  var portalPanel = document.getElementById('portalPanel');
+  var portalPanelList = document.getElementById('portalPanelList');
+  var portalEmpty = document.getElementById('portalEmpty');
 
-  // ---------- 绘制地图 ----------
-  var NS = 'http://www.w3.org/2000/svg';
-  svg.setAttribute('viewBox', '0 0 ' + map.width + ' ' + map.height);
+  // ---------- 投影 ----------
+  // 世界视图：与 build-map 生成时一致（1000 宽，投影高 projectH）
+  var W = map.width;
+  var PROJ_H = map.projectH || map.height;
+
+  function projectWorld(lat, lon) {
+    return [((lon + 180) / 360) * W, ((90 - lat) / 180) * PROJ_H];
+  }
+
+  // ---------- 图层 ----------
+  var worldLayer = document.createElementNS(NS, 'g');
+  var subLayer = document.createElementNS(NS, 'g');
+  var cityLayer = document.createElementNS(NS, 'g');
+  svg.appendChild(worldLayer);
+  svg.appendChild(subLayer);
+  svg.appendChild(cityLayer);
 
   var countryEls = {};
 
-  // 用文档片段一次性插入，避免逐个国家触发重排
-  var frag = document.createDocumentFragment();
-
-  map.countries.forEach(function (c) {
-    var path = document.createElementNS(NS, 'path');
-    path.setAttribute('d', c.d);
-    path.setAttribute('class', 'country');
-    path.setAttribute('data-code', c.c || '');
-    path.setAttribute('data-name', c.n || '');
-    var title = document.createElementNS(NS, 'title');
-    title.textContent = c.n || c.e || '';
-    path.appendChild(title);
-    path.addEventListener('click', function () {
-      selectCountry(c);
+  // 绘制世界国家
+  // 关键：按路径长度（≈面积）降序，让大国先画、小国后画叠在上面。
+  // 否则东南亚小国会盖住中国等大国，点击落到错误的国家。
+  (function buildWorld() {
+    var frag = document.createDocumentFragment();
+    var sorted = map.countries.slice().sort(function (a, b) {
+      return b.d.length - a.d.length;
     });
-    if (c.c) countryEls[c.c] = path;
-    frag.appendChild(path);
-  });
+    sorted.forEach(function (c) {
+      var path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', c.d);
+      path.setAttribute('class', 'country');
+      path.setAttribute('data-code', c.c || '');
+      var t = document.createElementNS(NS, 'title');
+      t.textContent = c.n || c.e || '';
+      path.appendChild(t);
+      path.addEventListener('click', function (e) {
+        e.stopPropagation();
+        onCountryClick(c);
+      });
+      if (c.c) countryEls[c.c] = path;
+      frag.appendChild(path);
+    });
+    worldLayer.appendChild(frag);
+  })();
 
-  // 城市点图层
-  var cityLayer = document.createElementNS(NS, 'g');
-  cityLayer.setAttribute('id', 'cityLayer');
-  frag.appendChild(cityLayer);
-
-  svg.appendChild(frag);
-
-  // 投影：与生成脚本保持一致（等距圆柱）
-  // projectH 是投影总高（含被裁掉的部分），height 是 viewBox 可见高度
-  var projH = map.projectH || map.height;
-
-  function project(lat, lon) {
-    return [
-      ((lon + 180) / 360) * map.width,
-      ((90 - lat) / 180) * projH,
-    ];
-  }
-
-  // ---------- 选中逻辑 ----------
-  function selectCountry(c) {
-    if (state.countryCode === c.c) {
-      // 再次点击同一个国家 = 取消
-      state.countryCode = null;
-      state.countryName = null;
-      state.cityName = null;
-    } else {
-      state.countryCode = c.c;
-      state.countryName = c.n;
-      state.cityName = null;
-    }
-    render();
-  }
-
-  function selectCity(city) {
-    state.cityName = state.cityName === city.name ? null : city.name;
-    render();
-  }
-
-  // ---------- 渲染 ----------
-  function render() {
-    renderMapSelection();
+  // ---------- 视图切换 ----------
+  function showWorld() {
+    state.level = 'world';
+    state.countryCode = null;
+    state.countryName = null;
+    state.subName = null;
+    worldLayer.style.display = '';
+    subLayer.style.display = 'none';
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + map.height);
+    backBtn.hidden = true;
     renderCityDots();
-    renderChips();
-    renderCategories();
+    updateBreadcrumb();
     renderPortals();
   }
 
-  function renderMapSelection() {
-    Object.keys(countryEls).forEach(function (code) {
-      var el = countryEls[code];
-      if (state.countryCode === code) el.classList.add('is-selected');
-      else el.classList.remove('is-selected');
+  function showCountry(code) {
+    var data = subs[code];
+    if (!data || !data.units.length) return false;
+
+    state.level = 'sub';
+    state.countryCode = code;
+    state.subName = null;
+
+    worldLayer.style.display = 'none';
+    subLayer.style.display = '';
+    backBtn.hidden = false;
+
+    var bb = data.bbox; // [x, y, w, h] 屏幕坐标
+    svg.setAttribute('viewBox', bb.join(' '));
+
+    // 重建省级图层
+    subLayer.innerHTML = '';
+    data.units.forEach(function (u) {
+      var path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', u.d);
+      path.setAttribute('class', 'subunit');
+      var t = document.createElementNS(NS, 'title');
+      t.textContent = u.n || u.e || '';
+      path.appendChild(t);
+      path.addEventListener('click', function (e) {
+        e.stopPropagation();
+        onSubClick(u, path);
+      });
+      u._el = path;
+      subLayer.appendChild(path);
+    });
+
+    renderCityDots();
+    updateBreadcrumb();
+    renderPortals();
+    return true;
+  }
+
+  // ---------- 交互 ----------
+  function onCountryClick(c) {
+    state.countryName = c.n;
+    // 有省级数据就下钻，否则直接选中
+    if (state.countryCode !== c.c) {
+      state.subName = null;
+    }
+    if (!showCountry(c.c)) {
+      // 无下钻数据：停在世界视图，标记选中
+      state.level = 'world';
+      state.countryCode = c.c;
+      state.subName = null;
+      highlightCountry(c.c);
+      renderCityDots();
+      updateBreadcrumb();
+      renderPortals();
+    } else {
+      // 下钻后，把国家名记录下来供面包屑和查询使用
+      state.countryName = c.n;
+      updateBreadcrumb();
+      renderPortals();
+    }
+  }
+
+  function onSubClick(u, el) {
+    // 再次点击同一个 = 取消
+    if (state.subName === u.n) {
+      state.subName = null;
+      el.classList.remove('is-selected');
+    } else {
+      state.subName = u.n;
+      Array.prototype.forEach.call(subLayer.children, function (c) {
+        c.classList.remove('is-selected');
+      });
+      el.classList.add('is-selected');
+    }
+    updateBreadcrumb();
+    renderPortals();
+  }
+
+  function highlightCountry(code) {
+    Object.keys(countryEls).forEach(function (k) {
+      countryEls[k].classList.toggle('is-selected', k === code);
     });
   }
 
-  /** 在当前选中（或全部）国家上画城市点 */
+  backBtn.addEventListener('click', function () {
+    showWorld();
+  });
+
+  // ---------- 城市点 ----------
   function renderCityDots() {
     cityLayer.innerHTML = '';
-    var pool = state.countryCode
-      ? cities.filter(function (c) { return c.c === state.countryCode; })
-      : [];
+    if (state.level !== 'world' || !state.countryCode) return;
 
+    var pool = cities.filter(function (c) { return c.c === state.countryCode; });
     pool.forEach(function (city) {
-      var xy = project(city.lat, city.lon);
+      var xy = projectWorld(city.lat, city.lon);
       var dot = document.createElementNS(NS, 'circle');
       dot.setAttribute('cx', xy[0]);
       dot.setAttribute('cy', xy[1]);
-      dot.setAttribute('r', state.cityName === city.name ? 4.6 : 3.2);
+      dot.setAttribute('r', 3.2);
       dot.setAttribute('class', 'city-dot');
-      dot.style.cursor = 'pointer';
-      dot.style.pointerEvents = 'auto';
-      var title = document.createElementNS(NS, 'title');
-      title.textContent = city.name;
-      dot.appendChild(title);
-      dot.addEventListener('click', function (e) {
-        e.stopPropagation();
-        selectCity(city);
-      });
+      var t = document.createElementNS(NS, 'title');
+      t.textContent = city.name;
+      dot.appendChild(t);
       cityLayer.appendChild(dot);
     });
   }
 
+  // ---------- 面包屑 ----------
+  function updateBreadcrumb() {
+    if (state.level === 'world' && !state.countryCode) {
+      breadcrumbEl.innerHTML = '<span class="bc-muted">世界</span>';
+      return;
+    }
+    var parts = ['<button type="button" class="bc-link" data-level="world">世界</button>'];
+    if (state.countryName) {
+      if (state.subName) {
+        parts.push('<span class="bc-sep">›</span>');
+        parts.push('<button type="button" class="bc-link" data-level="country">' + esc(state.countryName) + '</button>');
+      } else {
+        parts.push('<span class="bc-sep">›</span>');
+        parts.push('<span class="bc-current">' + esc(state.countryName) + '</span>');
+      }
+    }
+    if (state.subName) {
+      parts.push('<span class="bc-sep">›</span>');
+      parts.push('<span class="bc-current">' + esc(state.subName) + '</span>');
+    }
+    breadcrumbEl.innerHTML = parts.join(' ');
+
+    Array.prototype.forEach.call(breadcrumbEl.querySelectorAll('.bc-link'), function (b) {
+      b.addEventListener('click', function () {
+        if (b.getAttribute('data-level') === 'world') showWorld();
+        else if (state.countryCode) showCountry(state.countryCode);
+      });
+    });
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  // ---------- 条件 chips ----------
   function renderChips() {
     var parts = [];
-
     if (state.countryName) {
-      parts.push(chip('地区', state.countryName, function () {
-        state.countryCode = null;
-        state.countryName = null;
-        state.cityName = null;
-        render();
+      parts.push(chip('地区', state.countryName, function () { showWorld(); }));
+    }
+    if (state.subName) {
+      parts.push(chip('省份', state.subName, function () {
+        state.subName = null;
+        if (state.countryCode) showCountry(state.countryCode);
       }));
     }
-
-    if (state.cityName) {
-      parts.push(chip('城市', state.cityName, function () {
-        state.cityName = null;
-        render();
-      }));
-    }
-
     var cat = categories.filter(function (c) { return c.id === state.categoryId; })[0];
     if (cat && cat.id !== 'all') {
-      parts.push(chip('类型', cat.name, function () {
-        state.categoryId = 'all';
-        render();
-      }));
+      parts.push(chip('类型', cat.name, function () { state.categoryId = 'all'; render(); }));
     }
-
     if (state.keyword) {
       parts.push(chip('关键词', state.keyword, function () {
         state.keyword = '';
@@ -175,35 +272,31 @@
         render();
       }));
     }
-
+    chipsEl.innerHTML = '';
     if (!parts.length) {
-      chipsEl.innerHTML = '<span class="chips-empty">还没有选择条件 —— 点一下地图上的国家开始</span>';
+      chipsEl.innerHTML = '<span class="chips-empty">点击地图上的国家开始探索</span>';
       return;
     }
-
-    chipsEl.innerHTML = '';
     parts.forEach(function (el) { chipsEl.appendChild(el); });
   }
 
   function chip(label, value, onRemove) {
     var el = document.createElement('span');
     el.className = 'chip';
-
     var text = document.createElement('span');
     text.innerHTML = label + ' · <b></b>';
     text.querySelector('b').textContent = value;
-
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.setAttribute('aria-label', '移除 ' + label);
     btn.textContent = '×';
     btn.addEventListener('click', onRemove);
-
     el.appendChild(text);
     el.appendChild(btn);
     return el;
   }
 
+  // ---------- 分类 ----------
   function renderCategories() {
     catListEl.innerHTML = '';
     categories.forEach(function (cat) {
@@ -219,71 +312,105 @@
     });
   }
 
-  /** 拼出最终查询词 */
+  // ---------- 查询词 ----------
   function buildQuery() {
     var cat = categories.filter(function (c) { return c.id === state.categoryId; })[0];
     var bits = [];
-
-    // 关键词优先，其次地区
     if (state.keyword) bits.push(state.keyword.trim());
-    if (state.cityName) bits.push(state.cityName);
+    if (state.subName) bits.push(state.subName);
     else if (state.countryName) bits.push(state.countryName);
     if (cat && cat.term) bits.push(cat.term);
-
     return bits.join(' ').trim();
   }
 
+  // ---------- 门户下拉 ----------
   function renderPortals() {
     var q = buildQuery();
 
     if (!q) {
       portalQueryEl.textContent = '';
-      portalQueryEl.style.display = 'none';
-      portalHintEl.textContent = '选择一个地区、类型，或直接输入关键词，这里会生成对应的搜索入口。';
-      portalGridEl.innerHTML =
-        '<div class="portal-empty">' +
-        '先选一个条件：<br>点地图上的国家，或在上面输入关键词' +
-        '</div>';
+      portalQueryEl.hidden = true;
+      portalSelect.classList.remove('is-active');
+      portalIconRow.hidden = true;
+      portalEmpty.hidden = false;
+      closePanel();
       return;
     }
 
-    portalQueryEl.style.display = '';
+    portalQueryEl.hidden = false;
     portalQueryEl.textContent = q;
-    portalHintEl.textContent =
-      '点击会在新标签页打开对应平台自己的搜索页（已填好查询词），不是本站代理。';
+    portalSelect.classList.add('is-active');
+    portalEmpty.hidden = true;
+    portalIconRow.hidden = false;
 
-    portalGridEl.innerHTML = '';
+    // 小图标行（当前选中的门户直接点开）
+    portalIconRow.innerHTML = '';
     portals.forEach(function (p) {
       var a = document.createElement('a');
-      a.className = 'portal-link';
+      a.className = 'portal-mini';
       a.href = p.url(q);
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
+      a.title = p.name;
+      a.innerHTML =
+        '<span class="mini-dot" style="background:' + p.color + '"></span>' +
+        '<span class="mini-name">' + esc(p.name) + '</span>';
+      portalIconRow.appendChild(a);
+    });
 
-      var dot = document.createElement('span');
-      dot.className = 'portal-dot';
-      dot.style.background = p.color;
+    // 下拉面板内容
+    if (!portalPanel.hidden) renderPanelList(q);
+  }
 
-      var text = document.createElement('span');
-      text.className = 'portal-text';
-
-      var name = document.createElement('span');
-      name.className = 'portal-name';
-      name.textContent = p.name;
-
-      var desc = document.createElement('span');
-      desc.className = 'portal-desc';
-      desc.textContent = p.desc;
-
-      text.appendChild(name);
-      text.appendChild(desc);
-      a.appendChild(dot);
-      a.appendChild(text);
-      portalGridEl.appendChild(a);
+  function renderPanelList(q) {
+    portalPanelList.innerHTML = '';
+    portals.forEach(function (p) {
+      var a = document.createElement('a');
+      a.className = 'panel-item';
+      a.href = p.url(q);
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.innerHTML =
+        '<span class="panel-dot" style="background:' + p.color + '"></span>' +
+        '<span class="panel-text">' +
+        '<span class="panel-name">' + esc(p.name) + '</span>' +
+        '<span class="panel-desc">' + esc(p.desc) + '</span>' +
+        '</span>';
+      a.addEventListener('click', function () { closePanel(); });
+      portalPanelList.appendChild(a);
     });
   }
 
-  // ---------- 事件 ----------
+  function openPanel() {
+    var q = buildQuery();
+    if (!q) return;
+    renderPanelList(q);
+    portalPanel.hidden = false;
+    portalSelect.setAttribute('aria-expanded', 'true');
+  }
+
+  function closePanel() {
+    portalPanel.hidden = true;
+    portalSelect.setAttribute('aria-expanded', 'false');
+  }
+
+  portalSelect.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (portalPanel.hidden) openPanel();
+    else closePanel();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!portalPanel.hidden && !portalPanel.contains(e.target) && !portalSelect.contains(e.target)) {
+      closePanel();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closePanel();
+  });
+
+  // ---------- 搜索 ----------
   var timer = null;
   searchInput.addEventListener('input', function () {
     clearTimeout(timer);
@@ -294,26 +421,34 @@
     }, 220);
   });
 
-  searchInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-      searchInput.value = '';
-      state.keyword = '';
-      renderChips();
-      renderPortals();
-    }
-  });
-
   searchClear.addEventListener('click', function () {
     searchInput.value = '';
-    state.keyword = '';
-    state.countryCode = null;
-    state.countryName = null;
-    state.cityName = null;
+    showWorld();
     state.categoryId = 'all';
-    searchInput.focus();
     render();
+    searchInput.focus();
   });
 
-  // 初始渲染
-  render();
+  // ---------- 统一渲染 ----------
+  function render() {
+    renderChips();
+    renderCategories();
+    updateBreadcrumb();
+    renderPortals();
+  }
+
+  // ---------- 初始化 ----------
+  subLayer.style.display = 'none';
+  worldLayer.style.display = '';
+  backBtn.hidden = true;
+  portalPanel.hidden = true;
+  portalIconRow.hidden = true;
+
+  // 关键：先设置世界视图的 viewBox，否则地图会被脚本默认尺寸裁切
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + map.height);
+
+  renderCategories();
+  renderChips();
+  updateBreadcrumb();
+  renderPortals();
 })();
