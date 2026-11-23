@@ -123,6 +123,12 @@
     // 重建省级图层
     subLayer.innerHTML = '';
     data.units.forEach(function (u) {
+      // 标注点类型（港澳这类面积极小的地区）：画可点击的圆点 + 引线
+      if (u.marker) {
+        buildMarker(u);
+        return;
+      }
+      if (!u.d) return;
       var path = document.createElementNS(NS, 'path');
       path.setAttribute('d', u.d);
       path.setAttribute('class', 'subunit');
@@ -144,6 +150,67 @@
   }
 
   // ---------- 交互 ----------
+  /**
+   * 港澳这类面积极小的地区：画一个可点击的标注点。
+   * 位置按经纬度投影到当前省级视图（10 倍坐标 + 等距圆柱）。
+   * 标签方向可配置（labelDy / labelDx），避免相邻标注点文字重叠。
+   */
+  function buildMarker(u) {
+    // 港澳两地在真实地理位置相距约 60km，在省级视图上不足 5px，
+    // 必须人为错开，否则两个点与文字会叠在一起。
+    var cfg = {
+      'CN-HK': { lonOff: 0.55, dyOff: -22, dx: 15, anchor: 'start' },
+      'CN-MO': { lonOff: -0.35, dyOff: 22, dx: 15, anchor: 'start' },
+    }[u.c] || { lonOff: 0, dyOff: 0, dx: 15, anchor: 'start' };
+
+    var x = Math.round((u.lon + cfg.lonOff + 180) * 10);
+    var y = Math.round((90 - u.lat) * 10 + cfg.dyOff);
+
+    var g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'sub-marker');
+
+    // 引线：从真实位置指向标注点，说明这是偏移显示
+    var ax = Math.round((u.lon + 180) * 10);
+    var ay = Math.round((90 - u.lat) * 10);
+    if (ax !== x || ay !== y) {
+      var line = document.createElementNS(NS, 'line');
+      line.setAttribute('x1', ax);
+      line.setAttribute('y1', ay);
+      line.setAttribute('x2', x);
+      line.setAttribute('y2', y);
+      line.setAttribute('class', 'marker-leader');
+      g.appendChild(line);
+    }
+
+    var dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', x);
+    dot.setAttribute('cy', y);
+    dot.setAttribute('r', 9);
+    dot.setAttribute('class', 'marker-dot');
+    g.appendChild(dot);
+
+    var label = document.createElementNS(NS, 'text');
+    label.setAttribute('x', x + cfg.dx);
+    label.setAttribute('y', y + 5);
+    label.setAttribute('text-anchor', cfg.anchor);
+    label.setAttribute('class', 'marker-label');
+    label.textContent = u.n.replace(/特别行政区|省|市|自治区/g, '');
+    g.appendChild(label);
+
+    var t = document.createElementNS(NS, 'title');
+    t.textContent = u.n;
+    g.appendChild(t);
+
+    g.style.cursor = 'pointer';
+    g.addEventListener('click', function (e) {
+      e.stopPropagation();
+      onSubClick(u, g);
+    });
+
+    u._el = g;
+    subLayer.appendChild(g);
+  }
+
   function onCountryClick(c) {
     state.countryName = c.n;
     // 有省级数据就下钻，否则直接选中
@@ -171,16 +238,28 @@
     // 再次点击同一个 = 取消
     if (state.subName === u.n) {
       state.subName = null;
+      clearSubSelection();
       el.classList.remove('is-selected');
     } else {
       state.subName = u.n;
-      Array.prototype.forEach.call(subLayer.children, function (c) {
-        c.classList.remove('is-selected');
-      });
+      clearSubSelection();
       el.classList.add('is-selected');
+      // 标注点的选中态加在圆点上
+      if (u.marker) {
+        var dot = el.querySelector('.marker-dot');
+        if (dot) dot.classList.add('is-selected');
+      }
     }
     updateBreadcrumb();
     renderPortals();
+  }
+
+  function clearSubSelection() {
+    Array.prototype.forEach.call(subLayer.children, function (c) {
+      c.classList.remove('is-selected');
+      var d = c.querySelector && c.querySelector('.marker-dot');
+      if (d) d.classList.remove('is-selected');
+    });
   }
 
   function highlightCountry(code) {
