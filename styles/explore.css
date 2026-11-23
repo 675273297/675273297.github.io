@@ -302,6 +302,39 @@
 .map-svg .subunit:hover { fill: var(--clay-soft); }
 .map-svg .subunit.is-selected { fill: var(--moss); }
 
+/* 港澳这类面积极小地区的标注点 */
+.map-svg .marker-leader {
+  stroke: var(--clay);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: .5;
+  pointer-events: none;
+}
+
+.map-svg .marker-dot {
+  fill: var(--clay);
+  stroke: #fff;
+  stroke-width: 2.5;
+  transition: fill .16s ease;
+}
+.map-svg .sub-marker:hover .marker-dot {
+  fill: var(--clay-soft);
+}
+.map-svg .marker-dot.is-selected {
+  fill: var(--moss);
+}
+
+.map-svg .marker-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  fill: var(--ink-soft);
+  pointer-events: none;
+  user-select: none;
+}
+.map-svg .sub-marker:hover .marker-label {
+  fill: var(--ink);
+}
+
 .map-svg .city-dot {
   fill: var(--clay);
   stroke: #fff;
