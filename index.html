@@ -1,252 +1,205 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>我的喵喵</title>
-<meta name="description" content="喵喵的常用网站快捷入口">
-<meta name="theme-color" content="#1b2233">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f06aa0'/%3E%3Ccircle cx='24' cy='27' r='3.2' fill='white'/%3E%3Ccircle cx='40' cy='27' r='3.2' fill='white'/%3E%3Cpath d='M32 35c-4 0-7 2.6-7 5.2 0 2.6 3.1 4.8 7 4.8s7-2.2 7-4.8c0-2.6-3-5.2-7-5.2z' fill='white'/%3E%3C/svg%3E">
-<style>
-  :root {
-    --text: #ffffff;
-    --muted: rgba(255, 255, 255, .74);
-    --card: rgba(255, 255, 255, .17);
-    --line: rgba(255, 255, 255, .28);
-    --brand: #ff9ec7;
-    --radius: 20px;
-  }
-
-  * { box-sizing: border-box; }
-
-  html {
-    height: 100%;
-    background-color: #1b2233;   /* 图片加载前的底色，避免白闪 */
-  }
-
-  /* 背景照片层 */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    background-image: url("bg.jpg");
-    background-size: cover;
-    background-position: center 22%;
-    background-repeat: no-repeat;
-  }
-
-  /* 压暗层：保证白色文字在照片上依然清楚 */
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background:
-      linear-gradient(180deg, rgba(11, 16, 28, .40) 0%, rgba(11, 16, 28, .24) 38%, rgba(11, 16, 28, .70) 100%),
-      radial-gradient(120% 90% at 50% 0%, rgba(255, 158, 199, .10) 0%, transparent 55%);
-  }
-
-  body {
-    margin: 0;
-    min-height: 100vh;
-    padding: 40px 20px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-                 "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-    color: var(--text);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  .wrap {
-    width: 100%;
-    max-width: 720px;
-    margin: auto;
-  }
-
-  header { text-align: center; margin-bottom: 34px; }
-
-  .avatar {
-    width: 64px; height: 64px;
-    margin: 0 auto 18px;
-    border-radius: 20px;
-    display: grid; place-items: center;
-    font-size: 28px; font-weight: 700; color: #fff;
-    background: linear-gradient(135deg, #ffa9cd, #f06aa0 60%, #d94f87);
-    box-shadow: 0 12px 30px rgba(240, 106, 160, .40), inset 0 1px 0 rgba(255, 255, 255, .35);
-  }
-
-  h1 {
-    margin: 0 0 8px;
-    font-size: clamp(24px, 5vw, 34px);
-    letter-spacing: 2px;
-    text-shadow: 0 2px 18px rgba(0, 0, 0, .45);
-  }
-
-  .sub {
-    margin: 0;
-    color: var(--muted);
-    font-size: 14px;
-    letter-spacing: .5px;
-    text-shadow: 0 1px 10px rgba(0, 0, 0, .4);
-  }
-
-  .links {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
-    gap: 16px;
-  }
-
-  .link-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 18px;
-    text-decoration: none;
-    color: inherit;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .18);
-    transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
-  }
-
-  .link-card:hover,
-  .link-card:focus-visible {
-    transform: translateY(-3px);
-    background: rgba(255, 255, 255, .20);
-    border-color: rgba(255, 158, 199, .65);
-    box-shadow: 0 18px 38px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .25);
-    outline: none;
-  }
-
-  .link-card:active { transform: translateY(-1px); }
-
-  .icon {
-    flex: 0 0 46px;
-    width: 46px; height: 46px;
-    border-radius: 14px;
-    display: grid; place-items: center;
-    background: #fff;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, .22);
-  }
-
-  .icon svg { width: 26px; height: 26px; display: block; }
-
-  .meta { min-width: 0; }
-
-  .meta .name {
-    display: block;
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0 0 3px;
-    line-height: 1.3;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, .35);
-  }
-
-  .meta .desc {
-    display: block;
-    margin: 0;
-    font-size: 12.5px;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .arrow {
-    margin-left: auto;
-    color: rgba(255, 255, 255, .55);
-    font-size: 16px;
-    transition: color .18s ease, transform .18s ease;
-  }
-
-  .link-card:hover .arrow {
-    color: var(--brand);
-    transform: translateX(3px);
-  }
-
-  footer {
-    margin-top: 40px;
-    text-align: center;
-    font-size: 12.5px;
-    color: rgba(255, 255, 255, .60);
-    letter-spacing: .5px;
-    text-shadow: 0 1px 8px rgba(0, 0, 0, .4);
-  }
-
-  @media (max-width: 640px) {
-    /* 手机上用体积更小的背景图，加载更快 */
-    body::before { background-image: url("bg-small.jpg"); }
-  }
-
-  @media (max-width: 420px) {
-    body { padding: 28px 16px; }
-    .link-card { padding: 15px; }
-    .avatar { width: 56px; height: 56px; border-radius: 18px; font-size: 24px; }
-  }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>慢岛生活 · 一座不赶时间的岛</title>
+<meta name="description" content="慢岛生活 · 休闲俱乐部。在这里，把日子过慢一点。">
+<meta name="theme-color" content="#faf7f2">
+<link rel="canonical" href="https://mandao.life/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles/global.css">
 </head>
 <body>
+
+<header class="site-header">
   <div class="wrap">
-    <header>
-      <div class="avatar">喵</div>
-      <h1>我的喵喵</h1>
-      <p class="sub">常用网站，一键直达</p>
-    </header>
+    <a class="brand" href="index.html" aria-label="慢岛生活 首页">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" role="img" aria-label="慢岛生活">
+        <circle cx="24" cy="21" r="9.5" stroke="var(--clay)" stroke-width="1.6" opacity="0.9"/>
+        <path d="M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6" stroke="var(--moss)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4 2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        <path d="M24 26v-6M24 24.5c-2.1 0-3.4-1.3-3.4-3.2M24 22.6c1.7 0 2.8-1 2.8-2.6" stroke="var(--moss)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">慢岛生活</span>
+    </a>
 
-    <!--
-      以后想加网站，复制下面一整段 <a class="link-card"> ... </a>，
-      把 href 换成目标网址、name 换成站名、desc 换成域名说明即可。
-    -->
-    <nav class="links" aria-label="常用网站">
-      <a class="link-card" href="https://www.baidu.com" target="_blank" rel="noopener noreferrer">
-        <span class="icon" aria-hidden="true">
-          <svg viewBox="0 0 32 32" role="img">
-            <path fill="#2932E1" d="M16.9 3.4c1.6-.2 2.6 1.2 2.5 3-.1 1.9-1.2 3.7-2.8 4.3-1.7.6-2.7-.8-2.6-2.7.1-1.8 1.2-3.7 2.9-4.6z"/>
-            <path fill="#2932E1" d="M22.6 8.6c2 .1 3.2 2 2.9 4.4-.3 2.3-1.8 4.3-3.7 4.6-1.9.3-3.1-1.4-3-3.7.1-2.3 1.7-4.5 3.8-5.3z"/>
-            <path fill="#2932E1" d="M10.4 8.7c1.9-.8 3.7 1 4.2 3.3.5 2.3-.5 4.6-2.2 5.2-2 .7-3.7-.9-4.1-3.3-.4-2.3.6-4.5 2.1-5.2z"/>
-            <path fill="#2932E1" d="M4.9 17.2c1.6-1.5 3.9-1 5 1 1.1 1.9.7 4.3-1 5.2-1.8 1-3.9.2-4.8-1.8-.8-1.9-.6-3.6.8-4.4z"/>
-            <path fill="#2932E1" d="M16 15.6c-4.3 0-7.8 3.1-7.8 6.9 0 3.8 3.5 6.9 7.8 6.9s7.8-3.1 7.8-6.9c0-3.8-3.5-6.9-7.8-6.9zm-3 8.4c-.9 0-1.6-.9-1.6-2s.7-2 1.6-2 1.6.9 1.6 2-.7 2-1.6 2zm6 0c-.9 0-1.6-.9-1.6-2s.7-2 1.6-2 1.6.9 1.6 2-.7 2-1.6 2z"/>
-          </svg>
-        </span>
-        <span class="meta">
-          <span class="name">百度</span>
-          <span class="desc">www.baidu.com</span>
-        </span>
-        <span class="arrow" aria-hidden="true">→</span>
-      </a>
-
-      <a class="link-card" href="https://www.bilibili.com" target="_blank" rel="noopener noreferrer">
-        <span class="icon" aria-hidden="true">
-          <svg viewBox="0 0 32 32" role="img">
-            <rect x="2.5" y="7" width="27" height="20" rx="5" fill="#00A1D6"/>
-            <path d="M9.5 3.6l4.4 3.6M22.5 3.6l-4.4 3.6" stroke="#00A1D6" stroke-width="2.6" stroke-linecap="round" fill="none"/>
-            <rect x="8" y="12.5" width="5.6" height="7" rx="1.8" fill="#fff"/>
-            <rect x="18.4" y="12.5" width="5.6" height="7" rx="1.8" fill="#fff"/>
-          </svg>
-        </span>
-        <span class="meta">
-          <span class="name">哔哩哔哩</span>
-          <span class="desc">www.bilibili.com</span>
-        </span>
-        <span class="arrow" aria-hidden="true">→</span>
-      </a>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="index.html" aria-current="page">首页</a>
+      <a href="explore.html">探索</a>
+      <a href="about.html">关于</a>
+      <a href="member.html">会员</a>
     </nav>
-
-    <footer>
-      <span id="year">2026</span> · 我的喵喵
-    </footer>
   </div>
+</header>
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <p class="hero-eyebrow">Slow Island &middot; Club</p>
+      <h1>一座不赶时间的岛</h1>
+      <p class="hero-lede">
+        这里是慢岛生活——一个把日子过慢一点的地方。<br>
+        我们相信，生活不必总是匆忙，停留本身就有意义。
+      </p>
+      <div class="hero-rule" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>去看看外面的世界</h2>
+        <span class="section-note">精选新闻门户 &middot; 点击直达</span>
+      </div>
+
+      <p class="group-label">国内</p>
+      <div class="news-grid">
+        <a class="news-card" href="https://www.people.com.cn" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="13" stroke="#C0392B" stroke-width="1.7"/>
+              <path d="M16 7.5v17M9 12.2c4.6 2 9.4 2 14 0M9 19.8c4.6-2 9.4-2 14 0" stroke="#C0392B" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">人民网</span>
+            <span class="news-desc">权威时政与民生报道</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+
+        <a class="news-card" href="https://www.news.cn" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="13" fill="#B22222" opacity="0.12"/>
+              <path d="M16 4l2.6 6.2 6.7.6-5.1 4.4 1.5 6.6L16 18.2l-5.7 3.6 1.5-6.6-5.1-4.4 6.7-.6z" stroke="#B22222" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">新华网</span>
+            <span class="news-desc">国家通讯社新闻门户</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+
+        <a class="news-card" href="https://www.thepaper.cn" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect x="5" y="6" width="22" height="20" rx="3" stroke="#D35400" stroke-width="1.7"/>
+              <path d="M9.5 12h9M9.5 16h13M9.5 20h7" stroke="#D35400" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">澎湃新闻</span>
+            <span class="news-desc">深度调查与时事评论</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+
+        <a class="news-card" href="https://www.jiemian.com" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect x="5" y="5" width="22" height="22" rx="4" stroke="#1F6FB2" stroke-width="1.7"/>
+              <path d="M11 21V14M16 21V10M21 21v-5" stroke="#1F6FB2" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">界面新闻</span>
+            <span class="news-desc">商业与财经资讯</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      </div>
+
+      <p class="group-label">海外</p>
+      <div class="news-grid">
+        <a class="news-card" href="https://www.bbc.com/news" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect x="4" y="9" width="7" height="14" rx="1.6" fill="#BB1919"/>
+              <rect x="12.5" y="9" width="7" height="14" rx="1.6" fill="#BB1919"/>
+              <rect x="21" y="9" width="7" height="14" rx="1.6" fill="#BB1919"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">BBC News</span>
+            <span class="news-desc">英国广播公司国际新闻</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+
+        <a class="news-card" href="https://www.theguardian.com" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <path d="M6 26V11.5C6 8.5 9 6 13.5 6S21 8.4 21 11.5V26" stroke="#052962" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M21 26V15c0-2.2 1.9-4 4-4" stroke="#052962" stroke-width="1.7" stroke-linecap="round" opacity="0.55"/>
+              <path d="M9 26h15" stroke="#052962" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">The Guardian</span>
+            <span class="news-desc">英国卫报 &middot; 深度报道</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+
+        <a class="news-card" href="https://www.reuters.com" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="12.5" stroke="#FF8000" stroke-width="1.7"/>
+              <circle cx="16" cy="16" r="4.2" fill="#FF8000"/>
+              <path d="M16 3.5v5M16 23.5v5" stroke="#FF8000" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">Reuters</span>
+            <span class="news-desc">路透社全球快讯</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+
+        <a class="news-card" href="https://apnews.com" target="_blank" rel="noopener noreferrer">
+          <span class="news-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <path d="M7 24l7.5-16L22 24" stroke="#D91F26" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10.5 18.5h8" stroke="#D91F26" stroke-width="1.6" stroke-linecap="round"/>
+              <circle cx="25" cy="22.5" r="2" fill="#D91F26"/>
+            </svg>
+          </span>
+          <span class="news-body">
+            <span class="news-name">AP News</span>
+            <span class="news-desc">美联社独立新闻</span>
+          </span>
+          <span class="news-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      </div>
+
+      <div class="invite">
+        <h2>想留在岛上吗</h2>
+        <p>
+          慢岛生活是会员邀请制的小社区。<br>
+          如果你也想把日子过慢一点，欢迎了解我们的会员。
+        </p>
+        <a class="btn" href="member.html">了解会员</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>&copy; <span id="year">2026</span> 慢岛生活</span>
+    <nav class="footer-links" aria-label="页脚导航">
+      <a href="about.html">关于慢岛</a>
+      <a href="explore.html">探索</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
 </body>
 </html>
