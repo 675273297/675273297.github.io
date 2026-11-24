@@ -239,6 +239,7 @@
     renderPortals();
     renderChips();
     updateScaleBar();
+    renderHot(); // 右侧面板随国家切换重绘，否则会残留上一个国家
     return true;
   }
 
@@ -531,6 +532,7 @@
       portalSelect.classList.remove('is-active');
       portalCurIcon.hidden = true;
       portalIconRow.hidden = true;
+      portalIconRow.innerHTML = ''; // 同时清掉旧链接，避免条件清空后残留上一次的地区
       portalEmpty.hidden = false;
       closeAllDropdowns();
       return;
@@ -591,11 +593,15 @@
   // ---------- 热搜榜（随地图选择联动） ----------
   var regionKws = window.REGION_KEYWORDS || {};
   var hotTitleEl = document.getElementById('hotTitle');
+  var hotFootEl = document.getElementById('hotFoot');
+  var regionBlock = document.getElementById('regionBlock');
+  var regionTitleEl = document.getElementById('regionTitle');
+  var regionLinksEl = document.getElementById('regionLinks');
 
   /**
    * 选中地区时，从全国热搜里筛出提及该地区的条目。
-   * 百度没有分省热搜接口，实测 51 条热搜里带地名的通常只有 0~3 条，
-   * 所以筛不到时回退为全国热搜，并在标题里说明。
+   * 各平台都没有省级热搜接口（实测百度/微博/知乎/头条均无地域维度，
+   * 头条的 city_id 参数实际被忽略），所以筛不到时就如实退回全国热搜并说明。
    */
   function pickHotItems() {
     var all = (hot && hot.items) || [];
@@ -621,18 +627,57 @@
       return false;
     });
 
-    if (hits.length) {
-      return { items: hits.slice(0, 10), mode: 'region', region: region };
+    return { items: hits.slice(0, 10), mode: 'region', region: region };
+  }
+
+  // ---------- 地区搜索入口（方案 A） ----------
+  // 各平台都没有分省热搜，所以右侧改为给出「去该地区的实时新闻页」的直达入口：
+  // 链接由对方平台实时生成，我们只负责把地区词拼进查询，不抓取、不缓存。
+
+  /** 地区搜索专用站：按「地区 + 新闻」拼词 */
+  var REGION_SOURCES = [
+    { name: '百度新闻', color: '#2932E1', url: function (q) { return 'https://www.baidu.com/s?tn=news&wd=' + encodeURIComponent(q); } },
+    { name: '今日头条', color: '#F04142', url: function (q) { return 'https://so.toutiao.com/search?keyword=' + encodeURIComponent(q); } },
+    { name: '微博', color: '#E6162D', url: function (q) { return 'https://s.weibo.com/weibo?q=' + encodeURIComponent(q); } },
+    { name: '知乎', color: '#0084FF', url: function (q) { return 'https://www.zhihu.com/search?type=content&q=' + encodeURIComponent(q); } },
+    { name: '抖音', color: '#161823', url: function (q) { return 'https://www.douyin.com/search/' + encodeURIComponent(q); } },
+  ];
+
+  /** 去掉「省 / 市 / 自治区 / 特别行政区」等后缀，只用于显示 */
+  function shortName(name) {
+    return String(name).replace(/维吾尔自治区|回族自治区|壮族自治区|特别行政区|自治区|省|市$/g, '') || name;
+  }
+
+  function renderRegionBlock() {
+    var region = state.subName || state.countryName;
+    if (!region) {
+      regionBlock.hidden = true;
+      regionLinksEl.innerHTML = '';
+      return;
     }
-    // 筛不到：回退全国热搜，但标明当前地区没有相关热搜
-    return { items: all.slice(0, 10), mode: 'fallback', region: region };
+
+    regionBlock.hidden = false;
+    regionTitleEl.textContent = shortName(region) + ' · 去逛逛';
+
+    var q = region + ' 新闻';
+    regionLinksEl.innerHTML = '';
+    REGION_SOURCES.forEach(function (src) {
+      var a = document.createElement('a');
+      a.className = 'region-link';
+      a.href = src.url(q);
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = '在' + src.name + '搜索「' + q + '」';
+      a.innerHTML =
+        '<span class="panel-dot" style="background:' + src.color + '"></span>' +
+        '<span class="region-link-name">' + esc(src.name) + '</span>' +
+        '<span class="region-link-go" aria-hidden="true">↗</span>';
+      regionLinksEl.appendChild(a);
+    });
   }
 
   function renderHot() {
-    if (!hot || !hot.items || !hot.items.length) {
-      hotListEl.innerHTML = '<p class="hot-loading">暂无数据</p>';
-      return;
-    }
+    renderRegionBlock();
 
     var picked = pickHotItems();
     var items = picked.items;
@@ -640,19 +685,22 @@
     // 标题随地区切换
     if (hotTitleEl) {
       if (picked.mode === 'region') {
-        hotTitleEl.innerHTML = esc(picked.region) + ' 热搜';
+        hotTitleEl.textContent = shortName(picked.region) + ' 相关热搜';
       } else {
         hotTitleEl.textContent = '热搜榜';
       }
       hotTitleEl.classList.toggle('is-region', picked.mode === 'region');
     }
 
-    // 回退提示
+    // 筛不到地区热搜时如实说明，不留空白也不假装有
     var noteHtml = '';
-    if (picked.mode === 'fallback') {
-      noteHtml =
-        '<p class="hot-note">「' + esc(picked.region) +
-        '」暂无独立热搜，以下是全国热搜</p>';
+    if (picked.mode === 'region') {
+      noteHtml = '';
+    } else if (picked.mode === 'national' && !(hot && hot.items && hot.items.length)) {
+      noteHtml = '';
+    }
+    if (picked.mode === 'region' && !items.length) {
+      noteHtml = '<p class="hot-note">「' + esc(shortName(picked.region)) + '」暂时没有上榜的全国热搜</p>';
     }
 
     hotListEl.innerHTML = noteHtml;
@@ -668,7 +716,22 @@
       hotListEl.appendChild(a);
     });
 
-    if (hot.updated) {
+    if (!items.length && !noteHtml) {
+      hotListEl.innerHTML = '<p class="hot-loading">暂无数据</p>';
+    }
+
+    // 页脚说明随模式变化
+    if (hotFootEl) {
+      if (picked.mode === 'region') {
+        hotFootEl.textContent = '全国热搜中提及「' + shortName(picked.region) + '」的条目 · 数据来自百度';
+      } else if (picked.region) {
+        hotFootEl.textContent = '各平台均无省级热搜，这里显示全国热搜 · 数据来自百度';
+      } else {
+        hotFootEl.textContent = '数据来自百度热搜，点击跳转';
+      }
+    }
+
+    if (hot && hot.updated) {
       var d = new Date(hot.updated);
       if (!isNaN(d.getTime())) {
         var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
