@@ -430,7 +430,7 @@
   flex: 0 0 7px;
 }
 
-/* ---------- 右侧：地区搜索 + 热搜榜 ---------- */
+/* ---------- 右侧：多平台热搜 ---------- */
 
 .side-panel {
   position: sticky;
@@ -441,44 +441,49 @@
   padding: 20px 18px;
 }
 
-/* 地区搜索块：选中地区后出现，位于热搜上方 */
-.region-block {
-  margin-bottom: 18px;
-  padding-bottom: 4px;
-}
-.region-block[hidden] { display: none; }
-
-.region-sub {
-  margin: 0 0 9px;
-  font-size: 11.5px;
-  line-height: 1.6;
-  color: var(--ink-faint);
-}
-
-.region-links { display: flex; flex-direction: column; gap: 3px; }
-
-.region-link {
+/* 平台切换标签 */
+.board-tabs {
   display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.board-tab {
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  text-decoration: none;
+  gap: 5px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--ink-soft);
-  font-size: 13px;
-  transition: background .16s ease, color .16s ease;
+  background: var(--bg-warm);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .16s, color .16s, border-color .16s;
 }
-.region-link:hover { background: var(--bg-warm); color: var(--ink); }
-
-.region-link-name { flex: 1; min-width: 0; }
-
-.region-link-go {
-  font-size: 11px;
-  color: var(--ink-faint);
-  opacity: 0;
-  transition: opacity .16s ease;
+.board-tab:hover {
+  color: var(--ink);
+  border-color: var(--line);
 }
-.region-link:hover .region-link-go { opacity: 1; }
+.board-tab.is-active {
+  background: var(--card);
+  border-color: var(--moss);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.board-dot {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.board-name { pointer-events: none; }
 
 .hot-head {
   display: flex;
@@ -486,7 +491,7 @@
   justify-content: space-between;
   gap: 8px;
   padding-bottom: 12px;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -502,6 +507,17 @@
 
 /* 选中地区后，标题变成「XX 热搜」 */
 .side-title.is-region { color: var(--moss); }
+
+/* 热度值（微博/百度有，知乎/B站部分有） */
+.hot-value {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
 
 .hot-note {
   margin: 0 0 8px;
