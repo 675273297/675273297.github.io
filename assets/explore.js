@@ -69,9 +69,23 @@
   var worldLayer = document.createElementNS(NS, 'g');
   var subLayer = document.createElementNS(NS, 'g');
   var cityLayer = document.createElementNS(NS, 'g');
+  // 比例尺层：始终在最上层，不参与点击
+  var scaleLayer = document.createElementNS(NS, 'g');
+  scaleLayer.setAttribute('id', 'scaleBar');
+  scaleLayer.setAttribute('pointer-events', 'none');
+  var scaleTextEl = document.createElementNS(NS, 'text');
+  scaleTextEl.setAttribute('class', 'scale-text');
+  scaleTextEl.setAttribute('fill', '#6b635a');
+  scaleTextEl.setAttribute('font-size', '11');
+  scaleTextEl.setAttribute('font-family', '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif');
+
   svg.appendChild(worldLayer);
   svg.appendChild(subLayer);
   svg.appendChild(cityLayer);
+  svg.appendChild(scaleLayer);
+
+  var scaleBarEl = scaleLayer;
+  scaleLayer.appendChild(scaleTextEl);
 
   var countryEls = {};
 
@@ -100,6 +114,77 @@
     worldLayer.appendChild(frag);
   })();
 
+  // ---------- 比例尺 ----------
+  // 说明：世界视图用的是等距圆柱投影，这种投影在每个纬度上「1 SVG 单位对应的公里数」
+  // 都不同（高纬被横向拉伸），所以严格意义上不存在一把处处准确的尺子。
+  // 通行做法是按赤道比例绘制，并在高纬视图里按纬度余弦修正。
+  //   世界视图：viewBox 宽 1000 覆盖 360° → 1 单位 = 0.36°
+  //   省级视图：坐标 10 倍放大 → 1 单位 = 0.1°
+  function updateScaleBar() {
+    if (!scaleLayer) return;
+
+    var vb = svg.getAttribute('viewBox').split(' ').map(Number);
+    var vbX = vb[0], vbY = vb[1], vbW = vb[2], vbH = vb[3];
+
+    var unitsPerDeg;   // 每度经度对应多少 SVG 单位
+    var refLat;        // 按哪个纬度计算（世界视图用赤道，省级视图用实际纬度）
+
+    if (state.level === 'world') {
+      unitsPerDeg = W / 360;
+      refLat = 0; // 赤道基准
+    } else {
+      unitsPerDeg = 10;
+      refLat = 90 - (vbY + vbH / 2) / 10;
+    }
+
+    var kmPerDeg = 111.32 * Math.cos((refLat * Math.PI) / 180);
+    if (!isFinite(kmPerDeg) || kmPerDeg <= 0.5) kmPerDeg = 111.32;
+
+    // 每 SVG 单位实际代表多少公里
+    var kmPerUnit = kmPerDeg / unitsPerDeg;
+
+    // 选一个让比例尺占视图宽度 12%~20% 的整数刻度
+    var targetKm = vbW * kmPerUnit * 0.16;
+    var candidates = [50, 100, 200, 300, 500, 1000, 2000, 3000, 5000, 8000];
+    var best = candidates[0], bestDiff = Infinity;
+    for (var i = 0; i < candidates.length; i++) {
+      var diff = Math.abs(candidates[i] - targetKm);
+      if (diff < bestDiff) { bestDiff = diff; best = candidates[i]; }
+    }
+
+    var barUnits = best / kmPerUnit;
+
+    var x0 = vbX + vbW * 0.035;
+    var y0 = vbY + vbH * 0.94;
+    var tick = vbH * 0.03;
+
+    // 清掉旧线条，保留文字节点
+    Array.prototype.slice.call(scaleLayer.querySelectorAll('line')).forEach(function (l) {
+      l.remove();
+    });
+
+    function line(x1, y1, x2, y2) {
+      var l = document.createElementNS(NS, 'line');
+      l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+      l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+      l.setAttribute('stroke', '#6b635a');
+      l.setAttribute('stroke-width', '1.2');
+      l.setAttribute('vector-effect', 'non-scaling-stroke');
+      l.setAttribute('opacity', '0.7');
+      return l;
+    }
+
+    scaleLayer.insertBefore(line(x0, y0 - tick, x0, y0), scaleTextEl);
+    scaleLayer.insertBefore(line(x0, y0, x0 + barUnits, y0), scaleTextEl);
+    scaleLayer.insertBefore(line(x0 + barUnits, y0 - tick, x0 + barUnits, y0), scaleTextEl);
+
+    var label = best >= 1000 ? best / 1000 + ' 千公里' : best + ' 公里';
+    scaleTextEl.textContent = label;
+    scaleTextEl.setAttribute('x', x0 + barUnits + vbW * 0.012);
+    scaleTextEl.setAttribute('y', y0 + vbH * 0.012);
+    scaleTextEl.setAttribute('font-size', String(Math.max(8, vbH * 0.028)));
+  }
+
   // ---------- 视图 ----------
   function showWorld() {
     state.level = 'world';
@@ -114,6 +199,8 @@
     updateBreadcrumb();
     renderPortals();
     renderChips();
+    updateScaleBar();
+    renderHot();
   }
 
   function showCountry(code) {
@@ -150,6 +237,8 @@
     renderCityDots();
     updateBreadcrumb();
     renderPortals();
+    renderChips();
+    updateScaleBar();
     return true;
   }
 
@@ -167,11 +256,13 @@
       updateBreadcrumb();
       renderPortals();
       renderChips();
+      renderHot();
     } else {
       state.countryName = c.n;
       updateBreadcrumb();
       renderPortals();
       renderChips();
+      renderHot();
     }
   }
 
@@ -191,6 +282,7 @@
     updateBreadcrumb();
     renderPortals();
     renderChips();
+    renderHot();
   }
 
   function clearSubSelection() {
@@ -496,17 +588,74 @@
     if (q) renderPanelList(q);
   });
 
-  // ---------- 热搜榜 ----------
+  // ---------- 热搜榜（随地图选择联动） ----------
+  var regionKws = window.REGION_KEYWORDS || {};
+  var hotTitleEl = document.getElementById('hotTitle');
+
+  /**
+   * 选中地区时，从全国热搜里筛出提及该地区的条目。
+   * 百度没有分省热搜接口，实测 51 条热搜里带地名的通常只有 0~3 条，
+   * 所以筛不到时回退为全国热搜，并在标题里说明。
+   */
+  function pickHotItems() {
+    var all = (hot && hot.items) || [];
+    var region = state.subName || state.countryName;
+
+    // 没选地区 → 全国热搜
+    if (!region) {
+      return { items: all.slice(0, 10), mode: 'national', region: null };
+    }
+
+    // 找关键词表：先按省名，再按去掉后缀的国家名
+    var keys = regionKws[region];
+    if (!keys) {
+      var short = region.replace(/特别行政区|维吾尔自治区|自治区|省|市/g, '');
+      keys = regionKws[short] || [short, region];
+    }
+
+    var hits = all.filter(function (it) {
+      var w = it.word || '';
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i] && w.indexOf(keys[i]) !== -1) return true;
+      }
+      return false;
+    });
+
+    if (hits.length) {
+      return { items: hits.slice(0, 10), mode: 'region', region: region };
+    }
+    // 筛不到：回退全国热搜，但标明当前地区没有相关热搜
+    return { items: all.slice(0, 10), mode: 'fallback', region: region };
+  }
+
   function renderHot() {
     if (!hot || !hot.items || !hot.items.length) {
       hotListEl.innerHTML = '<p class="hot-loading">暂无数据</p>';
       return;
     }
 
-    // 取前 10 条（跳过置顶那条不算序号）
-    var items = hot.items.slice(0, 10);
+    var picked = pickHotItems();
+    var items = picked.items;
 
-    hotListEl.innerHTML = '';
+    // 标题随地区切换
+    if (hotTitleEl) {
+      if (picked.mode === 'region') {
+        hotTitleEl.innerHTML = esc(picked.region) + ' 热搜';
+      } else {
+        hotTitleEl.textContent = '热搜榜';
+      }
+      hotTitleEl.classList.toggle('is-region', picked.mode === 'region');
+    }
+
+    // 回退提示
+    var noteHtml = '';
+    if (picked.mode === 'fallback') {
+      noteHtml =
+        '<p class="hot-note">「' + esc(picked.region) +
+        '」暂无独立热搜，以下是全国热搜</p>';
+    }
+
+    hotListEl.innerHTML = noteHtml;
     items.forEach(function (it, i) {
       var a = document.createElement('a');
       a.className = 'hot-item';
@@ -564,4 +713,5 @@
   updateBreadcrumb();
   renderPortals();
   renderHot();
+  updateScaleBar();
 })();
