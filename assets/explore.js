@@ -50,9 +50,6 @@
   var portalPanelList = document.getElementById('portalPanelList');
   var portalCurIcon = document.getElementById('portalCurIcon');
 
-  var portalIconRow = document.getElementById('portalIconRow');
-  var portalEmpty = document.getElementById('portalEmpty');
-
   var hotListEl = document.getElementById('hotList');
   var hotUpdatedEl = document.getElementById('hotUpdated');
 
@@ -92,24 +89,24 @@
   // 否则东南亚小国会盖住中国，点击落到错误的国家。
   (function buildWorld() {
     var frag = document.createDocumentFragment();
-    map.countries
-      .slice()
-      .sort(function (a, b) { return b.d.length - a.d.length; })
-      .forEach(function (c) {
-        var path = document.createElementNS(NS, 'path');
-        path.setAttribute('d', c.d);
-        path.setAttribute('class', 'country');
-        path.setAttribute('data-code', c.c || '');
-        var t = document.createElementNS(NS, 'title');
-        t.textContent = c.n || c.e || '';
-        path.appendChild(t);
-        path.addEventListener('click', function (e) {
-          e.stopPropagation();
-          onCountryClick(c);
-        });
-        if (c.c) countryEls[c.c] = path;
-        frag.appendChild(path);
+    var sorted = map.countries.slice().sort(function (a, b) { return b.d.length - a.d.length; });
+    sorted.forEach(function (c, i) {
+      var path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', c.d);
+      path.setAttribute('class', 'country');
+      path.setAttribute('data-code', c.c || '');
+      // 入场淡入的错峰延迟：大国先浮现，小国随后补上
+      if (i < 60) path.style.animationDelay = (i * 12) + 'ms';
+      var t = document.createElementNS(NS, 'title');
+      t.textContent = c.n || c.e || '';
+      path.appendChild(t);
+      path.addEventListener('click', function (e) {
+        e.stopPropagation();
+        onCountryClick(c);
       });
+      if (c.c) countryEls[c.c] = path;
+      frag.appendChild(path);
+    });
     worldLayer.appendChild(frag);
   })();
 
@@ -186,6 +183,7 @@
 
   // ---------- 视图 ----------
   function showWorld() {
+    hideHover();
     state.level = 'world';
     state.countryCode = null;
     state.countryName = null;
@@ -206,6 +204,7 @@
     var data = subs[code];
     if (!data || !data.units.length) return false;
 
+    hideHover();
     state.level = 'sub';
     state.countryCode = code;
     state.subName = null;
@@ -217,12 +216,13 @@
     svg.setAttribute('viewBox', data.bbox.join(' '));
 
     subLayer.innerHTML = '';
-    data.units.forEach(function (u) {
+    data.units.forEach(function (u, i) {
       if (u.marker) { buildMarker(u); return; }
       if (!u.d) return;
       var path = document.createElementNS(NS, 'path');
       path.setAttribute('d', u.d);
       path.setAttribute('class', 'subunit');
+      if (i < 60) path.style.animationDelay = (i * 10) + 'ms';
       var t = document.createElementNS(NS, 'title');
       t.textContent = u.n || u.e || '';
       path.appendChild(t);
@@ -244,6 +244,7 @@
 
   // ---------- 省/州 交互 ----------
   function onCountryClick(c) {
+    hideHover(); // 切换视图时清掉跟随标签
     state.countryName = c.n;
     if (state.countryCode !== c.c) state.subName = null;
 
@@ -267,6 +268,7 @@
   }
 
   function onSubClick(u, el) {
+    hideHover(); // 选中省份时也清掉，避免标签停在旧位置
     if (state.subName === u.n) {
       state.subName = null;
       clearSubSelection();
@@ -527,29 +529,12 @@
   function renderPortals() {
     var q = buildQuery();
 
-    // 没有查询词时也要能点：落到各平台自己的热搜/首页
-    portalEmpty.textContent = q
-      ? '已带上条件，点平台即可搜索'
-      : '点平台直接打开热搜；先输入关键词或选地区，就会带上查询词';
-    portalIconRow.hidden = false;
-    portalSelect.classList.add('is-active');
-    portalCurIcon.hidden = false;
-    portalCurIcon.innerHTML = '<span class="mini-dot" style="background:' + portals[0].color + '"></span>';
-
-    // 快捷入口：一行展示全部
-    portalIconRow.innerHTML = '';
-    portals.forEach(function (p) {
-      var a = document.createElement('a');
-      a.className = 'portal-mini';
-      a.href = q ? p.url(q) : p.home;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.title = q ? p.name + ' 搜索「' + q + '」' : '打开' + p.name + '热搜';
-      a.innerHTML =
-        '<span class="mini-dot" style="background:' + p.color + '"></span>' +
-        '<span class="mini-name">' + esc(p.name) + '</span>';
-      portalIconRow.appendChild(a);
-    });
+    // 顶部「搜索」下拉：有查询词时提示已带上，没有时提示会打开热搜榜
+    portalSelect.classList.toggle('is-active', !!q);
+    portalCurIcon.hidden = !q;
+    if (q && portals.length) {
+      portalCurIcon.innerHTML = '<span class="mini-dot" style="background:' + portals[0].color + '"></span>';
+    }
 
     if (!portalPanel.hidden) renderPanelList(q);
   }
@@ -584,11 +569,14 @@
     renderPanelList(buildQuery());
   });
 
-  // ---------- 多平台热搜（手动切换） ----------
+  // ---------- 多平台热搜（手动切换 + 分页） ----------
   var hotFootEl = document.getElementById('hotFoot');
   var boardTabsEl = document.getElementById('boardTabs');
+  var hotPagerEl = document.getElementById('hotPager');
   var hotData = window.HOT_BOARDS || { boards: [] };
   var activeBoardId = null;
+  var hotPage = 0;
+  var PAGE_SIZE = 10;
 
   function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
@@ -599,19 +587,30 @@
     return pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
   }
 
+  /** 当前平台对象 */
+  function currentBoard() {
+    var boards = hotData.boards || [];
+    if (!boards.length) return null;
+    if (!activeBoardId) activeBoardId = boards[0].id;
+    return boards.filter(function (b) { return b.id === activeBoardId; })[0] || boards[0];
+  }
+
   function renderBoardTabs() {
     boardTabsEl.innerHTML = '';
     (hotData.boards || []).forEach(function (b) {
+      var isOn = b.id === activeBoardId;
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'board-tab' + (b.id === activeBoardId ? ' is-active' : '');
+      btn.className = 'board-tab' + (isOn ? ' is-active' : '');
       btn.setAttribute('role', 'tab');
-      btn.setAttribute('aria-selected', b.id === activeBoardId ? 'true' : 'false');
-      btn.innerHTML =
-        '<span class="board-dot" style="background:' + b.color + '"></span>' +
-        '<span class="board-name">' + esc(b.name) + '</span>';
+      btn.setAttribute('aria-selected', isOn ? 'true' : 'false');
+      // 选中时用该平台的品牌色，未选中保持低调
+      if (isOn) btn.style.setProperty('--tab-accent', b.color);
+      btn.textContent = b.name;
       btn.addEventListener('click', function () {
+        if (activeBoardId === b.id) return;
         activeBoardId = b.id;
+        hotPage = 0;
         renderBoardTabs();
         renderHotList();
       });
@@ -620,29 +619,34 @@
   }
 
   function renderHotList() {
-    var boards = hotData.boards || [];
-    if (!boards.length) {
+    var board = currentBoard();
+    if (!board) {
       hotListEl.innerHTML = '<p class="hot-loading">暂无数据</p>';
+      hotPagerEl.innerHTML = '';
       hotFootEl.textContent = '';
       return;
     }
 
-    // 默认选第一个（百度）
-    if (!activeBoardId) activeBoardId = boards[0].id;
-    var board = boards.filter(function (b) { return b.id === activeBoardId; })[0] || boards[0];
-
     hotUpdatedEl.textContent = fmtTime(board.updated || hotData.updated);
 
     var items = board.items || [];
+    var pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    if (hotPage >= pages) hotPage = pages - 1;
+    if (hotPage < 0) hotPage = 0;
+
+    var start = hotPage * PAGE_SIZE;
+    var slice = items.slice(start, start + PAGE_SIZE);
+
     hotListEl.innerHTML = '';
-    items.forEach(function (it, i) {
+    slice.forEach(function (it, i) {
+      var rank = start + i + 1;
       var a = document.createElement('a');
       a.className = 'hot-item';
       a.href = it.url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
       a.innerHTML =
-        '<span class="hot-rank' + (i < 3 ? ' is-top' : '') + '">' + (i + 1) + '</span>' +
+        '<span class="hot-rank' + (rank <= 3 ? ' is-top' : '') + '">' + rank + '</span>' +
         '<span class="hot-word">' + esc(it.title) + '</span>' +
         (it.hot ? '<span class="hot-value">' + esc(it.hot) + '</span>' : '');
       hotListEl.appendChild(a);
@@ -652,13 +656,202 @@
       hotListEl.innerHTML = '<p class="hot-loading">这个平台暂时没有数据</p>';
     }
 
-    hotFootEl.textContent = board.name + '热搜 · 共 ' + items.length + ' 条 · 点击跳转';
+    renderPager(pages);
+    hotFootEl.textContent = board.name + '热搜 · 共 ' + items.length + ' 条';
   }
 
-  /** 热搜面板不再随地图地区联动，只做平台切换；地区搜索走左下的平台入口 */
+  function renderPager(pages) {
+    hotPagerEl.innerHTML = '';
+    if (pages <= 1) return;
+
+    function btn(label, page, opts) {
+      opts = opts || {};
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pager-btn' + (opts.active ? ' is-active' : '');
+      b.textContent = label;
+      if (opts.disabled) {
+        b.disabled = true;
+      } else {
+        b.addEventListener('click', function () {
+          hotPage = page;
+          renderHotList();
+        });
+      }
+      if (opts.title) b.title = opts.title;
+      return b;
+    }
+
+    hotPagerEl.appendChild(btn('‹', hotPage - 1, { disabled: hotPage === 0, title: '上一页' }));
+    for (var p = 0; p < pages; p++) {
+      hotPagerEl.appendChild(btn(String(p + 1), p, { active: p === hotPage }));
+    }
+    hotPagerEl.appendChild(btn('›', hotPage + 1, { disabled: hotPage === pages - 1, title: '下一页' }));
+  }
+
+  // ---------- 世界时钟 ----------
+  // 时间由浏览器按 IANA 时区真实换算，不依赖任何接口
+  var CLOCK_CITIES = [
+    { name: '东京', tz: 'Asia/Tokyo' },
+    { name: '巴黎', tz: 'Europe/Paris' },
+    { name: '纽约', tz: 'America/New_York' },
+    { name: '悉尼', tz: 'Australia/Sydney' },
+  ];
+
+  var worldClockEl = document.getElementById('worldClock');
+
+  function timeIn(tz) {
+    try {
+      return new Intl.DateTimeFormat('zh-CN', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(new Date());
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /** 按当地时间判断是白天还是夜里，用作小图标 */
+  function isDaytime(tz) {
+    try {
+      var h = Number(
+        new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hour12: false }).format(new Date())
+      );
+      return h >= 7 && h < 19;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  function renderWorldClock() {
+    if (!worldClockEl) return;
+    worldClockEl.innerHTML = '';
+    CLOCK_CITIES.forEach(function (c) {
+      var day = isDaytime(c.tz);
+      var span = document.createElement('span');
+      span.className = 'clock-item';
+      span.innerHTML =
+        '<span class="clock-sun ' + (day ? 'is-day' : 'is-night') + '" aria-hidden="true">' +
+        (day ? '☀' : '☾') +
+        '</span>' +
+        '<span class="clock-city">' + esc(c.name) + '</span>' +
+        '<span class="clock-time">' + timeIn(c.tz) + '</span>';
+      worldClockEl.appendChild(span);
+    });
+  }
+
+  /** 根据各城市昼夜状态拼一句真实描述（不编造天气） */
+  function renderMood() {
+    var moodEl = document.getElementById('worldMood');
+    if (!moodEl) return;
+    var day = [];
+    var night = [];
+    CLOCK_CITIES.forEach(function (c) {
+      (isDaytime(c.tz) ? day : night).push(c.name);
+    });
+    var text;
+    if (day.length && night.length) {
+      text = day.join('、') + '还是白天，' + night.join('、') + '已经入夜';
+    } else if (day.length === CLOCK_CITIES.length) {
+      text = '这几个城市此刻都是白天';
+    } else if (night.length === CLOCK_CITIES.length) {
+      text = '这几个城市此刻都在夜里';
+    } else {
+      text = '世界正安静地转动';
+    }
+    moodEl.textContent = text;
+  }
+
+  // ---------- 随便逛逛 ----------
+  var randomBtn = document.getElementById('randomBtn');
+
+  randomBtn.addEventListener('click', function () {
+    // 优先在所有国家里随机；有省份数据的国家再随机选一个省份
+    var all = (map.countries || []).filter(function (c) { return c.c && c.d; });
+    if (!all.length) return;
+    var pick = all[Math.floor(Math.random() * all.length)];
+
+    var subData = subs[pick.c];
+    if (subData && subData.units && subData.units.length) {
+      showCountry(pick.c);
+      state.countryName = pick.n;
+      // 顺带随机选一个省份
+      var units = subData.units.filter(function (u) { return u.n; });
+      if (units.length) {
+        var u = units[Math.floor(Math.random() * units.length)];
+        state.subName = u.n;
+        clearSubSelection();
+        Array.prototype.forEach.call(subLayer.children, function (el) {
+          var t = el.querySelector && el.querySelector('title');
+          if (t && t.textContent === u.n) el.classList.add('is-selected');
+        });
+      }
+      updateBreadcrumb();
+      renderPortals();
+      renderChips();
+      renderHot();
+    } else {
+      onCountryClick(pick);
+    }
+
+    // 让用户立刻看到结果：平滑滚回地图
+    var panel = document.querySelector('.map-panel');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  /** 热搜面板：平台切换 + 分页 */
   function renderHot() {
     renderBoardTabs();
     renderHotList();
+  }
+
+  // ---------- 鼠标跟随标签 ----------
+  // 原生 <title> 要悬停一秒才出现，这里做一个跟手的小标签
+  var mapHoverEl = document.getElementById('mapHover');
+  var mapPanelEl = document.querySelector('.map-panel');
+  var lastHoverKey = '';
+
+  function hideHover() {
+    if (mapHoverEl) mapHoverEl.hidden = true;
+    lastHoverKey = '';
+  }
+
+  if (svg && mapHoverEl && mapPanelEl) {
+    svg.addEventListener('mousemove', function (e) {
+      var t = e.target;
+      if (!t || !t.classList) return hideHover();
+      var isCountry = t.classList.contains('country');
+      var isSub = t.classList.contains('subunit');
+      if (!isCountry && !isSub && !t.closest('.sub-marker')) return hideHover();
+
+      // 从 <title> 拿地名
+      var holder = t.closest ? t.closest('.sub-marker') || t : t;
+      var titleEl = holder.querySelector && holder.querySelector('title');
+      var name = titleEl ? titleEl.textContent : '';
+      if (!name) return hideHover();
+
+      var key = name + '|' + (isSub ? 's' : 'c');
+      if (key !== lastHoverKey) {
+        lastHoverKey = key;
+        mapHoverEl.textContent = name + (isCountry ? ' · 点击进入' : '');
+        mapHoverEl.hidden = false;
+      }
+
+      // 跟随光标，并夹在地图范围内
+      var rect = mapPanelEl.getBoundingClientRect();
+      var pad = 12;
+      var x = e.clientX - rect.left + 14;
+      var y = e.clientY - rect.top - 10;
+      var maxX = rect.width - mapHoverEl.offsetWidth - pad;
+      if (x > maxX) x = e.clientX - rect.left - mapHoverEl.offsetWidth - 14;
+      if (x < pad) x = pad;
+      if (y < pad) y = pad;
+      mapHoverEl.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+    });
+
+    svg.addEventListener('mouseleave', hideHover);
   }
 
   // ---------- 搜索 ----------
@@ -687,7 +880,6 @@
   backBtn.hidden = true;
   portalPanel.hidden = true;
   catPanel.hidden = true;
-  portalIconRow.hidden = true;
 
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + map.height);
 
@@ -697,4 +889,11 @@
   renderPortals();
   renderHot();
   updateScaleBar();
+  renderWorldClock();
+  renderMood();
+  // 每分钟对一次时，跨整点也能跟着走
+  setInterval(function () {
+    renderWorldClock();
+    renderMood();
+  }, 60 * 1000);
 })();
