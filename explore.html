@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://mandao.life/explore.html">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles/global.css">
-<link rel="stylesheet" href="styles/explore.css?v=4">
+<link rel="stylesheet" href="styles/explore.css?v=5">
 </head>
 <body>
 
@@ -103,34 +103,26 @@
 
         <!-- 快捷入口：一行 -->
         <div class="quick-row">
-          <span id="portalEmpty" class="quick-hint">选好地区或输入关键词后，这里会出现各平台的搜索入口</span>
+          <span id="portalEmpty" class="quick-hint">点平台直接打开热搜；先输入关键词或选地区，就会带上查询词</span>
           <div id="portalIconRow" class="quick-icons" hidden></div>
         </div>
 
       </div>
 
-      <!-- 右侧：地区搜索 + 热搜榜 -->
+      <!-- 右侧：多平台热搜（手动切换） -->
       <aside class="side-panel">
-
-        <!-- 选中地区后才出现的「去这里逛逛」入口 -->
-        <div id="regionBlock" class="region-block" hidden>
-          <div class="hot-head">
-            <h2 id="regionTitle" class="side-title">地区搜索</h2>
-          </div>
-          <p class="region-sub">点一下，去该地区的实时新闻页</p>
-          <div id="regionLinks" class="region-links"></div>
-        </div>
-
         <div class="hot-head">
-          <h2 id="hotTitle" class="side-title">热搜榜</h2>
+          <h2 class="side-title">热搜榜</h2>
           <span id="hotUpdated" class="hot-updated"></span>
         </div>
 
-        <div id="hotList" class="hot-list">
+        <div id="boardTabs" class="board-tabs" role="tablist" aria-label="选择平台"></div>
+
+        <div id="hotList" class="hot-list" role="tabpanel">
           <p class="hot-loading">加载中…</p>
         </div>
 
-        <p id="hotFoot" class="hot-foot">数据来自百度热搜，点击跳转</p>
+        <p id="hotFoot" class="hot-foot">点击条目跳转到平台</p>
       </aside>
 
     </div>
@@ -152,9 +144,9 @@
 <script src="assets/cities.js"></script>
 <script src="assets/portals.js"></script>
 <script src="assets/subdivisions.js"></script>
-<script src="assets/hot-news.js"></script>
+<script src="assets/hot-boards.js"></script>
 <script src="assets/region-keywords.js"></script>
-<script src="assets/explore.js?v=4"></script>
+<script src="assets/explore.js?v=5"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 </script>
