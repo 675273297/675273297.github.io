@@ -430,7 +430,7 @@
   flex: 0 0 7px;
 }
 
-/* ---------- 右侧热搜榜 ---------- */
+/* ---------- 右侧：地区搜索 + 热搜榜 ---------- */
 
 .side-panel {
   position: sticky;
@@ -440,6 +440,45 @@
   border-radius: var(--radius);
   padding: 20px 18px;
 }
+
+/* 地区搜索块：选中地区后出现，位于热搜上方 */
+.region-block {
+  margin-bottom: 18px;
+  padding-bottom: 4px;
+}
+.region-block[hidden] { display: none; }
+
+.region-sub {
+  margin: 0 0 9px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+
+.region-links { display: flex; flex-direction: column; gap: 3px; }
+
+.region-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  transition: background .16s ease, color .16s ease;
+}
+.region-link:hover { background: var(--bg-warm); color: var(--ink); }
+
+.region-link-name { flex: 1; min-width: 0; }
+
+.region-link-go {
+  font-size: 11px;
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+.region-link:hover .region-link-go { opacity: 1; }
 
 .hot-head {
   display: flex;
