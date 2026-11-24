@@ -257,6 +257,17 @@
   overflow: hidden;
 }
 
+/* 海洋底色：让陆地轮廓更清楚 */
+.map-panel::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border-radius: calc(var(--radius) - 6px);
+  background:
+    radial-gradient(120% 90% at 50% 0%, #f7f3ec 0%, #f2ede4 100%);
+  pointer-events: none;
+}
+
 .map-back {
   position: absolute;
   left: 22px;
@@ -280,41 +291,51 @@
 
 .map-tip {
   position: absolute;
-  left: 22px;
-  bottom: 16px;
+  right: 22px;
+  bottom: 14px;
   margin: 0;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--ink-faint);
   pointer-events: none;
+}
+
+/* 比例尺文字随 SVG 缩放，这里只约束字体度量 */
+.map-svg .scale-text {
+  font-family: var(--font-sans);
+  fill: var(--ink-soft);
+  pointer-events: none;
+  user-select: none;
 }
 
 .map-svg {
   display: block;
   width: 100%;
   height: auto;
+  position: relative;
   touch-action: manipulation;
 }
 
+/* 陆地：比海洋深一档，带轻微描边提升轮廓 */
 .map-svg .country {
-  fill: #e7e1d6;
-  stroke: var(--bg);
-  stroke-width: 0.5;
+  fill: #e2dbcd;
+  stroke: #f5f1e9;
+  stroke-width: 0.45;
   stroke-linejoin: round;
   cursor: pointer;
   transition: fill .16s ease;
 }
-.map-svg .country:hover { fill: var(--clay-soft); }
+.map-svg .country:hover { fill: #efd9c6; }
 .map-svg .country.is-selected { fill: var(--moss); }
 
 .map-svg .subunit {
-  fill: #e7e1d6;
-  stroke: var(--bg);
-  stroke-width: 1.2;
+  fill: #e2dbcd;
+  stroke: #f5f1e9;
+  stroke-width: 1.1;
   stroke-linejoin: round;
   cursor: pointer;
   transition: fill .16s ease;
 }
-.map-svg .subunit:hover { fill: var(--clay-soft); }
+.map-svg .subunit:hover { fill: #efd9c6; }
 .map-svg .subunit.is-selected { fill: var(--moss); }
 
 .map-svg .marker-leader {
@@ -437,6 +458,20 @@
   letter-spacing: .06em;
   color: var(--ink);
   margin: 0;
+  transition: color .2s ease;
+}
+
+/* 选中地区后，标题变成「XX 热搜」 */
+.side-title.is-region { color: var(--moss); }
+
+.hot-note {
+  margin: 0 0 8px;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+  background: var(--bg-warm);
+  border-radius: 7px;
 }
 
 .hot-updated {
