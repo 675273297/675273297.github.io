@@ -350,7 +350,10 @@
 .map-svg {
   display: block;
   width: 100%;
-  height: auto;
+  /* 固定高度：否则接近正方形的国家（巴西/印度/澳大利亚）会把地图
+     拉到 800px 以上，页面剧烈跳动、返回按钮被顶出视口。
+     配合 SVG 默认的 xMidYMid meet，内容自动居中，不同国家只是留白不同。 */
+  height: clamp(300px, 34vw, 404px);
   position: relative;
   touch-action: manipulation;
 }
