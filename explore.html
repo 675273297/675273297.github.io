@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://mandao.life/explore.html">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles/global.css">
-<link rel="stylesheet" href="styles/explore.css?v=6">
+<link rel="stylesheet" href="styles/explore.css?v=7">
 </head>
 <body>
 
@@ -97,9 +97,16 @@
           <button id="mapBack" class="map-back" type="button" hidden>
             <span aria-hidden="true">←</span> 返回世界
           </button>
-          <svg id="map" class="map-svg" role="img" aria-label="世界地图，点击国家进入，再点省份"></svg>
+          <svg id="map" class="map-svg" role="img" aria-label="世界地图，滚轮可缩放，拖动可平移，点击国家进入，再点省份"></svg>
           <div id="mapHover" class="map-hover" hidden aria-hidden="true"></div>
-          <p class="map-tip">点国家进入 &middot; 再点省份</p>
+
+          <div class="map-zoom" role="group" aria-label="地图缩放">
+            <button id="zoomIn" class="zoom-btn" type="button" title="放大" aria-label="放大">+</button>
+            <button id="zoomOut" class="zoom-btn" type="button" title="缩小" aria-label="缩小">&minus;</button>
+            <button id="zoomReset" class="zoom-btn zoom-reset" type="button" title="回到这一层最初的样子" aria-label="回到这一层最初的样子">&#8634;</button>
+          </div>
+
+          <p class="map-tip">滚轮缩放 &middot; 拖动平移 &middot; 点国家进入</p>
         </div>
 
         <!-- 地图下方的门户条：随机漫游 + 世界时钟 -->
@@ -161,7 +168,7 @@
 <script src="assets/subdivisions.js"></script>
 <script src="assets/hot-boards.js"></script>
 <script src="assets/region-keywords.js"></script>
-<script src="assets/explore.js?v=6"></script>
+<script src="assets/explore.js?v=7"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 </script>
