@@ -1,0 +1,38 @@
+name: 更新热搜数据
+
+# 每 10 分钟抓一次百度热搜，写入 assets/hot-news.js
+# 浏览器无法直接请求百度接口（跨域），所以由定时任务抓取后存成静态文件
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # 允许在 Actions 页面手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 抓取百度热搜
+        run: node tools/fetch-hot.mjs
+
+      - name: 提交更新
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/hot-news.js
+          if git diff --staged --quiet; then
+            echo "热搜无变化，跳过提交"
+          else
+            git commit -m "chore: 更新热搜数据 $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
