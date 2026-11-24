@@ -109,8 +109,18 @@
 
       </div>
 
-      <!-- 右侧：热搜榜 -->
+      <!-- 右侧：地区搜索 + 热搜榜 -->
       <aside class="side-panel">
+
+        <!-- 选中地区后才出现的「去这里逛逛」入口 -->
+        <div id="regionBlock" class="region-block" hidden>
+          <div class="hot-head">
+            <h2 id="regionTitle" class="side-title">地区搜索</h2>
+          </div>
+          <p class="region-sub">点一下，去该地区的实时新闻页</p>
+          <div id="regionLinks" class="region-links"></div>
+        </div>
+
         <div class="hot-head">
           <h2 id="hotTitle" class="side-title">热搜榜</h2>
           <span id="hotUpdated" class="hot-updated"></span>
@@ -120,7 +130,7 @@
           <p class="hot-loading">加载中…</p>
         </div>
 
-        <p class="hot-foot">数据来自百度热搜，点击跳转</p>
+        <p id="hotFoot" class="hot-foot">数据来自百度热搜，点击跳转</p>
       </aside>
 
     </div>
