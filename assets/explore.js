@@ -40,6 +40,11 @@
   var searchInput = document.getElementById('searchInput');
   var searchClear = document.getElementById('searchClear');
 
+  var mapPanelEl = document.querySelector('.map-panel');
+  var zoomInBtn = document.getElementById('zoomIn');
+  var zoomOutBtn = document.getElementById('zoomOut');
+  var zoomResetBtn = document.getElementById('zoomReset');
+
   var catSelect = document.getElementById('catSelect');
   var catPanel = document.getElementById('catPanel');
   var catListEl = document.getElementById('catList');
@@ -56,15 +61,29 @@
   // ---------- 投影 ----------
   var W = map.width;
   var PROJ_H = map.projectH || map.height;
+  var WORLD_H = map.height; // 世界视图默认高度（裁掉南极圈）
 
   function projectWorld(lat, lon) {
     return [((lon + 180) / 360) * W, ((90 - lat) / 180) * PROJ_H];
   }
 
+  // 省份数据用的是「每度 10 单位」的整数坐标，而世界坐标是「每度 W/360 单位」。
+  // 把省份层整体乘以这个系数，两层就落在同一套坐标系里，
+  // 于是 viewBox 可以在世界与国家之间连续插值 —— 缩放动画和滚轮缩放都靠它。
+  var SUB_SCALE = W / 360 / 10;
+
+  // ---------- 视图矩形 ----------
+  // 整个地图只有一个坐标系，所有缩放平移都只是在改这四个数。
+  var view = { x: 0, y: 0, w: W, h: WORLD_H };
+  var homeView = { x: 0, y: 0, w: W, h: WORLD_H }; // 当前层级的「初始视图」，也是缩放基准
+  var MAX_ZOOM = 14;
+
   // ---------- 图层 ----------
   var worldLayer = document.createElementNS(NS, 'g');
   var subLayer = document.createElementNS(NS, 'g');
   var cityLayer = document.createElementNS(NS, 'g');
+  // 省份层画在 10 倍坐标里，这里统一缩回世界坐标系
+  subLayer.setAttribute('transform', 'scale(' + SUB_SCALE + ')');
   // 比例尺层：始终在最上层，不参与点击
   var scaleLayer = document.createElementNS(NS, 'g');
   scaleLayer.setAttribute('id', 'scaleBar');
@@ -84,6 +103,7 @@
   scaleLayer.appendChild(scaleTextEl);
 
   var countryEls = {};
+  var markerEls = []; // 港澳这类小地方的标注点，需要随缩放反向调整大小
 
   // 按路径长度（≈面积）降序：大国先画，小国后画叠在上层，
   // 否则东南亚小国会盖住中国，点击落到错误的国家。
@@ -111,37 +131,38 @@
   })();
 
   // ---------- 比例尺 ----------
-  // 说明：世界视图用的是等距圆柱投影，这种投影在每个纬度上「1 SVG 单位对应的公里数」
-  // 都不同（高纬被横向拉伸），所以严格意义上不存在一把处处准确的尺子。
-  // 通行做法是按赤道比例绘制，并在高纬视图里按纬度余弦修正。
-  //   世界视图：viewBox 宽 1000 覆盖 360° → 1 单位 = 0.36°
-  //   省级视图：坐标 10 倍放大 → 1 单位 = 0.1°
+  // 等距圆柱投影里，同一个 SVG 单位在不同纬度代表的公里数不同（高纬被横向拉伸），
+  // 所以按「视图中心纬度」做余弦修正。
+  // 现在世界与省份共用一套世界坐标：1 单位 = 360/W 度经度。
+  var svgRect = null;
+
+  function refreshRect() {
+    if (svg) svgRect = svg.getBoundingClientRect();
+  }
+
   function updateScaleBar() {
     if (!scaleLayer) return;
+    if (!svgRect) refreshRect();
 
-    var vb = svg.getAttribute('viewBox').split(' ').map(Number);
-    var vbX = vb[0], vbY = vb[1], vbW = vb[2], vbH = vb[3];
+    var boxW = (svgRect && svgRect.width) || 1000;
+    var boxH = (svgRect && svgRect.height) || 404;
 
-    var unitsPerDeg;   // 每度经度对应多少 SVG 单位
-    var refLat;        // 按哪个纬度计算（世界视图用赤道，省级视图用实际纬度）
+    // preserveAspectRatio="meet"：取两者中较小的缩放比
+    var pxPerUnit = Math.min(boxW / view.w, boxH / view.h);
+    if (!isFinite(pxPerUnit) || pxPerUnit <= 0) pxPerUnit = 1;
+    var u = 1 / pxPerUnit; // 1 屏幕像素 = 多少世界单位
 
-    if (state.level === 'world') {
-      unitsPerDeg = W / 360;
-      refLat = 0; // 赤道基准
-    } else {
-      unitsPerDeg = 10;
-      refLat = 90 - (vbY + vbH / 2) / 10;
-    }
-
+    var unitsPerDeg = W / 360;
+    var refLat = 90 - (view.y + view.h / 2) * (180 / PROJ_H);
+    if (refLat > 89) refLat = 89;
+    if (refLat < -89) refLat = -89;
     var kmPerDeg = 111.32 * Math.cos((refLat * Math.PI) / 180);
-    if (!isFinite(kmPerDeg) || kmPerDeg <= 0.5) kmPerDeg = 111.32;
+    if (!isFinite(kmPerDeg) || kmPerDeg < 3) kmPerDeg = 3;
+    var kmPerUnit = kmPerDeg / unitsPerDeg; // 每世界单位多少公里
 
-    // 每 SVG 单位实际代表多少公里
-    var kmPerUnit = kmPerDeg / unitsPerDeg;
-
-    // 选一个让比例尺占视图宽度 12%~20% 的整数刻度
-    var targetKm = vbW * kmPerUnit * 0.16;
-    var candidates = [50, 100, 200, 300, 500, 1000, 2000, 3000, 5000, 8000];
+    // 选一个让比例尺占视图宽度约 18% 的整齐刻度
+    var targetKm = view.w * kmPerUnit * 0.18;
+    var candidates = [1, 2, 5, 10, 20, 50, 100, 200, 300, 500, 1000, 2000, 3000, 5000, 8000, 10000];
     var best = candidates[0], bestDiff = Infinity;
     for (var i = 0; i < candidates.length; i++) {
       var diff = Math.abs(candidates[i] - targetKm);
@@ -150,9 +171,9 @@
 
     var barUnits = best / kmPerUnit;
 
-    var x0 = vbX + vbW * 0.035;
-    var y0 = vbY + vbH * 0.94;
-    var tick = vbH * 0.03;
+    var x0 = view.x + view.w * 0.035;
+    var y0 = view.y + view.h * 0.94;
+    var tick = 4 * u;
 
     // 清掉旧线条，保留文字节点
     Array.prototype.slice.call(scaleLayer.querySelectorAll('line')).forEach(function (l) {
@@ -165,6 +186,7 @@
       l.setAttribute('x2', x2); l.setAttribute('y2', y2);
       l.setAttribute('stroke', '#6b635a');
       l.setAttribute('stroke-width', '1.2');
+      // 线宽按像素固定，不随缩放变粗
       l.setAttribute('vector-effect', 'non-scaling-stroke');
       l.setAttribute('opacity', '0.7');
       return l;
@@ -176,10 +198,282 @@
 
     var label = best >= 1000 ? best / 1000 + ' 千公里' : best + ' 公里';
     scaleTextEl.textContent = label;
-    scaleTextEl.setAttribute('x', x0 + barUnits + vbW * 0.012);
-    scaleTextEl.setAttribute('y', y0 + vbH * 0.012);
-    scaleTextEl.setAttribute('font-size', String(Math.max(8, vbH * 0.028)));
+    scaleTextEl.setAttribute('x', x0 + barUnits + 6 * u);
+    scaleTextEl.setAttribute('y', y0 + 4 * u);
+    scaleTextEl.setAttribute('font-size', String(11 * u));
   }
+
+  // ==========================================================
+  //  视图引擎：viewBox 补间 + 滚轮缩放 + 拖动平移
+  // ==========================================================
+
+  var animating = false;
+  var tweenRaf = 0;
+
+  function applyViewBox() {
+    svg.setAttribute('viewBox', view.x + ' ' + view.y + ' ' + view.w + ' ' + view.h);
+    // 标注点要跟着缩放反向调整，否则放大后圆点和文字会撑成一团
+    sizeMarkers();
+  }
+
+  function currentZoom() {
+    return homeView.w / view.w;
+  }
+
+  /** 把矩形夹在 homeView 附近，防止无限平移跑到空白海面 */
+  function clampRect(r) {
+    function axis(pos, size, hPos, hSize) {
+      var pad = hSize >= W - 1 ? 0 : hSize * 0.25;
+      var lo = hPos - pad;
+      var hi = hPos + hSize + pad;
+      if (size >= hi - lo) return hPos + hSize / 2 - size / 2;
+      if (pos < lo) return lo;
+      if (pos + size > hi) return hi - size;
+      return pos;
+    }
+    r.x = axis(r.x, r.w, homeView.x, homeView.w);
+    r.y = axis(r.y, r.h, homeView.y, homeView.h);
+    return r;
+  }
+
+  function updateZoomUI() {
+    var z = currentZoom();
+    if (zoomInBtn) zoomInBtn.disabled = z >= MAX_ZOOM - 0.001;
+    if (zoomOutBtn) zoomOutBtn.disabled = z <= 1.001;
+    if (zoomResetBtn) zoomResetBtn.disabled = z <= 1.001;
+    if (mapPanelEl) mapPanelEl.classList.toggle('is-zoomed', z > 1.01);
+  }
+
+  function applyView() {
+    clampRect(view);
+    applyViewBox();
+    updateScaleBar();
+    updateZoomUI();
+  }
+
+  function easeInOut(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  /**
+   * 把 viewBox 从当前值补间到 target。
+   * 尺寸走对数插值（观感上是匀速推进），中心走线性插值。
+   */
+  function tweenTo(target, ms, done) {
+    if (tweenRaf) { cancelAnimationFrame(tweenRaf); tweenRaf = 0; }
+    animating = false;
+
+    // 已经是这个视图了（例如在世界视图又点了一次「世界」），不必空转一秒钟
+    var same = Math.abs(view.x - target.x) < 0.01 && Math.abs(view.y - target.y) < 0.01 &&
+      Math.abs(view.w - target.w) < 0.01 && Math.abs(view.h - target.h) < 0.01;
+
+    if (!ms || same || prefersReducedMotion()) {
+      view.x = target.x; view.y = target.y; view.w = target.w; view.h = target.h;
+      applyView();
+      if (done) done();
+      return;
+    }
+
+    var from = { x: view.x, y: view.y, w: view.w, h: view.h };
+    var c0x = from.x + from.w / 2, c0y = from.y + from.h / 2;
+    var c1x = target.x + target.w / 2, c1y = target.y + target.h / 2;
+    var lw = Math.log(target.w / from.w);
+    var lh = Math.log(target.h / from.h);
+
+    animating = true;
+    // 缩放途中比例尺的刻度会一直跳，先隐掉，收尾时再出现
+    if (ms > 420) {
+      scaleLayer.style.transition = 'opacity .18s ease';
+      scaleLayer.style.opacity = '0';
+    }
+
+    var t0 = 0;
+    function step(now) {
+      if (!t0) t0 = now;
+      var t = Math.min(1, (now - t0) / ms);
+      var e = easeInOut(t);
+      view.w = from.w * Math.exp(lw * e);
+      view.h = from.h * Math.exp(lh * e);
+      view.x = c0x + (c1x - c0x) * e - view.w / 2;
+      view.y = c0y + (c1y - c0y) * e - view.h / 2;
+      applyViewBox();
+      if (t < 1) {
+        tweenRaf = requestAnimationFrame(step);
+      } else {
+        tweenRaf = 0;
+        animating = false;
+        view.x = target.x; view.y = target.y; view.w = target.w; view.h = target.h;
+        applyView();
+        scaleLayer.style.opacity = '1';
+        if (done) done();
+      }
+    }
+    tweenRaf = requestAnimationFrame(step);
+  }
+
+  function fadeTo(el, to, ms) {
+    if (!ms) {
+      el.style.transition = 'none';
+      el.style.opacity = to === 1 ? '1' : '0';
+      return;
+    }
+    el.style.transition = 'opacity ' + ms + 'ms ease';
+    el.style.opacity = to === 1 ? '1' : '0';
+  }
+
+  /** 屏幕坐标 → 世界坐标 */
+  function svgPoint(clientX, clientY) {
+    var ctm = svg.getScreenCTM();
+    if (!ctm) return { x: view.x + view.w / 2, y: view.y + view.h / 2 };
+    var pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    var p = pt.matrixTransform(ctm.inverse());
+    return { x: p.x, y: p.y };
+  }
+
+  /** 围绕某点缩放，factor > 1 放大 */
+  function zoomAt(factor, cx, cy) {
+    var z = currentZoom();
+    var nz = Math.min(MAX_ZOOM, Math.max(1, z * factor));
+    var f = nz / z;
+    if (!isFinite(f) || Math.abs(f - 1) < 1e-4) return false;
+
+    var nw = view.w / f;
+    var nh = view.h / f;
+    var next = {
+      x: cx - (cx - view.x) * (nw / view.w),
+      y: cy - (cy - view.y) * (nh / view.h),
+      w: nw,
+      h: nh,
+    };
+    clampRect(next);
+    view = next;
+    applyView();
+    return true;
+  }
+
+  /** 按钮缩放：围绕视图中心，带一点过渡 */
+  function zoomStep(factor) {
+    if (animating) return;
+    var z = currentZoom();
+    var nz = Math.min(MAX_ZOOM, Math.max(1, z * factor));
+    if (Math.abs(nz - z) < 1e-4) return;
+    var s = z / nz;
+    var cx = view.x + view.w / 2;
+    var cy = view.y + view.h / 2;
+    var nw = view.w * s;
+    var nh = view.h * s;
+    var target = clampRect({ x: cx - nw / 2, y: cy - nh / 2, w: nw, h: nh });
+    tweenTo(target, 260);
+  }
+
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', function () { zoomStep(1.7); });
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', function () { zoomStep(1 / 1.7); });
+  }
+  if (zoomResetBtn) {
+    zoomResetBtn.addEventListener('click', function () {
+      if (animating) return;
+      tweenTo({ x: homeView.x, y: homeView.y, w: homeView.w, h: homeView.h }, 320);
+    });
+  }
+
+  // 滚轮缩放：以光标所在位置为不动点。
+  // 只有在真的改变了缩放时才 preventDefault —— 已经缩到最小时滚轮交给页面，
+  // 免得鼠标路过地图就把整页滚动吞掉。
+  svg.addEventListener('wheel', function (e) {
+    if (animating) return;
+    var d = e.deltaY;
+    if (e.deltaMode === 1) d *= 18;
+    else if (e.deltaMode === 2) d *= 400;
+    var p = svgPoint(e.clientX, e.clientY);
+    if (zoomAt(Math.pow(1.0018, -d), p.x, p.y)) e.preventDefault();
+  }, { passive: false });
+
+  // 拖动平移
+  var drag = null;
+  var suppressClickAt = 0;
+
+  function worldPerPx() {
+    var ctm = svg.getScreenCTM();
+    if (!ctm) return { kx: view.w / Math.max(1, svg.clientWidth || 1000), ky: view.h / Math.max(1, svg.clientHeight || 400) };
+    var inv = ctm.inverse();
+    var o = svg.createSVGPoint(); o.x = 0; o.y = 0; o = o.matrixTransform(inv);
+    var px = svg.createSVGPoint(); px.x = 1; px.y = 0; px = px.matrixTransform(inv);
+    var py = svg.createSVGPoint(); py.x = 0; py.y = 1; py = py.matrixTransform(inv);
+    return { kx: px.x - o.x, ky: py.y - o.y };
+  }
+
+  svg.addEventListener('pointerdown', function (e) {
+    if (animating) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // 触摸且没放大过：把手势留给页面滚动，否则手机上没法上下滚
+    if (e.pointerType === 'touch' && currentZoom() < 1.01) return;
+
+    var k = worldPerPx();
+    drag = {
+      id: e.pointerId,
+      x0: e.clientX, y0: e.clientY,
+      v0: { x: view.x, y: view.y },
+      kx: k.kx, ky: k.ky,
+      moved: false,
+    };
+    // 注意：这里刻意不用 setPointerCapture。
+    // 一旦捕获了指针，浏览器会把随后的 click 派发到 <svg> 根节点上，
+    // 国家 <path> 自己的 click 永远收不到 —— 表现就是「能悬停、点不动」。
+  });
+
+  window.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dx = e.clientX - drag.x0;
+    var dy = e.clientY - drag.y0;
+    if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+    drag.moved = true;
+    svg.classList.add('is-dragging');
+    hideHover();
+    view.x = drag.v0.x - dx * drag.kx;
+    view.y = drag.v0.y - dy * drag.ky;
+    applyView();
+  });
+
+  function endDrag(e) {
+    if (!drag) return;
+    if (e && e.pointerId !== drag.id) return;
+    if (drag.moved) suppressClickAt = Date.now();
+    drag = null;
+    svg.classList.remove('is-dragging');
+  }
+
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+
+  // 拖完之后紧跟的那次 click 要吞掉，否则一拖就误进国家
+  svg.addEventListener('click', function (e) {
+    if (Date.now() - suppressClickAt < 350) {
+      e.stopPropagation();
+      e.preventDefault();
+      suppressClickAt = 0;
+    }
+  }, true);
+
+  // 双击放大
+  svg.addEventListener('dblclick', function (e) {
+    if (animating) return;
+    e.preventDefault();
+    var p = svgPoint(e.clientX, e.clientY);
+    zoomAt(2, p.x, p.y);
+  });
+
+  window.addEventListener('resize', function () {
+    refreshRect();
+    updateScaleBar();
+  });
 
   // ---------- 视图 ----------
   function showWorld() {
@@ -188,16 +482,27 @@
     state.countryCode = null;
     state.countryName = null;
     state.subName = null;
-    worldLayer.style.display = '';
-    subLayer.style.display = 'none';
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + map.height);
+    homeView = { x: 0, y: 0, w: W, h: WORLD_H };
     backBtn.hidden = true;
+    highlightCountry(null);
+
     renderCityDots();
     updateBreadcrumb();
     renderPortals();
     renderChips();
-    updateScaleBar();
     renderHot();
+
+    // 世界层立刻回来（缩小途中要有陆地撑着），省份层淡出
+    worldLayer.style.display = '';
+    fadeTo(worldLayer, 1, 0);
+    if (subLayer.childNodes.length) fadeTo(subLayer, 0, 360);
+
+    tweenTo(homeView, 720, function () {
+      subLayer.style.display = 'none';
+      subLayer.innerHTML = '';
+      clearSubSelection();
+      fadeTo(subLayer, 1, 0);
+    });
   }
 
   function showCountry(code) {
@@ -209,11 +514,15 @@
     state.countryCode = code;
     state.subName = null;
 
-    worldLayer.style.display = 'none';
-    subLayer.style.display = '';
-    backBtn.hidden = false;
+    // bbox 是 10 倍坐标，换算成世界坐标
+    homeView = {
+      x: data.bbox[0] * SUB_SCALE,
+      y: data.bbox[1] * SUB_SCALE,
+      w: data.bbox[2] * SUB_SCALE,
+      h: data.bbox[3] * SUB_SCALE,
+    };
 
-    svg.setAttribute('viewBox', data.bbox.join(' '));
+    backBtn.hidden = false;
 
     subLayer.innerHTML = '';
     data.units.forEach(function (u, i) {
@@ -233,38 +542,53 @@
       subLayer.appendChild(path);
     });
 
+    // 世界层留在原位不淡出：它的国家轮廓和省份层完全重合，
+    // 放大途中看起来就是「内部边界慢慢浮现」，比直接换图自然。
+    subLayer.style.display = '';
+    fadeTo(subLayer, 1, 420);
+    fadeTo(worldLayer, 1, 0);
+
     renderCityDots();
     updateBreadcrumb();
     renderPortals();
     renderChips();
-    updateScaleBar();
     renderHot(); // 右侧面板随国家切换重绘，否则会残留上一个国家
+
+    tweenTo(homeView, 760, function () {
+      worldLayer.style.display = 'none';
+    });
     return true;
   }
 
   // ---------- 省/州 交互 ----------
   function onCountryClick(c) {
     hideHover(); // 切换视图时清掉跟随标签
-    state.countryName = c.n;
-    if (state.countryCode !== c.c) state.subName = null;
 
-    if (!showCountry(c.c)) {
-      state.level = 'world';
-      state.countryCode = c.c;
-      state.subName = null;
-      highlightCountry(c.c);
-      renderCityDots();
-      updateBreadcrumb();
-      renderPortals();
-      renderChips();
-      renderHot();
-    } else {
+    var wasSub = state.level === 'sub';
+    if (showCountry(c.c)) {
       state.countryName = c.n;
       updateBreadcrumb();
       renderPortals();
       renderChips();
       renderHot();
+      return;
     }
+
+    // 这个国家没有省份级数据：留在世界视图，只把它高亮出来。
+    // 注意 —— 如果此时正停在别的国家的省份视图里，必须先把图层和
+    // viewBox 复位回世界，否则画面会卡在上一张图上、按钮也点不动。
+    if (wasSub) showWorld();
+
+    state.level = 'world';
+    state.countryCode = c.c;
+    state.countryName = c.n;
+    state.subName = null;
+    highlightCountry(c.c);
+    renderCityDots();
+    updateBreadcrumb();
+    renderPortals();
+    renderChips();
+    renderHot();
   }
 
   function onSubClick(u, el) {
@@ -305,42 +629,38 @@
 
   /** 港澳这类面积极小地区：偏移标注点 + 虚线引线 */
   function buildMarker(u) {
+    // 偏移量按「屏幕像素」定义：缩放时反算，标注点才不会跟着地图一起放大
     var cfg = {
-      'CN-HK': { lonOff: 0.55, dyOff: -22, dx: 15 },
-      'CN-MO': { lonOff: -0.35, dyOff: 22, dx: 15 },
-    }[u.c] || { lonOff: 0, dyOff: 0, dx: 15 };
+      'CN-HK': { px: 17, py: -27 },
+      'CN-MO': { px: 17, py: 27 },
+    }[u.c] || { px: 17, py: 0 };
 
     var ax = Math.round((u.lon + 180) * 10);
     var ay = Math.round((90 - u.lat) * 10);
-    var x = Math.round((u.lon + cfg.lonOff + 180) * 10);
-    var y = ay + cfg.dyOff;
 
     var g = document.createElementNS(NS, 'g');
     g.setAttribute('class', 'sub-marker');
 
-    if (ax !== x || ay !== y) {
-      var line = document.createElementNS(NS, 'line');
-      line.setAttribute('x1', ax);
-      line.setAttribute('y1', ay);
-      line.setAttribute('x2', x);
-      line.setAttribute('y2', y);
-      line.setAttribute('class', 'marker-leader');
-      g.appendChild(line);
-    }
+    var line = document.createElementNS(NS, 'line');
+    line.setAttribute('class', 'marker-leader');
+    g.appendChild(line);
 
+    // 这层只做定位 + 按屏幕像素反向缩放，里面的尺寸单位就等于屏幕像素
+    var vg = document.createElementNS(NS, 'g');
     var dot = document.createElementNS(NS, 'circle');
-    dot.setAttribute('cx', x);
-    dot.setAttribute('cy', y);
-    dot.setAttribute('r', 9);
+    dot.setAttribute('cx', 0);
+    dot.setAttribute('cy', 0);
+    dot.setAttribute('r', 8);
     dot.setAttribute('class', 'marker-dot');
-    g.appendChild(dot);
+    vg.appendChild(dot);
 
     var label = document.createElementNS(NS, 'text');
-    label.setAttribute('x', x + cfg.dx);
-    label.setAttribute('y', y + 5);
+    label.setAttribute('x', 12);
+    label.setAttribute('y', 4.5);
     label.setAttribute('class', 'marker-label');
     label.textContent = u.n.replace(/特别行政区|省|市|自治区/g, '');
-    g.appendChild(label);
+    vg.appendChild(label);
+    g.appendChild(vg);
 
     var t = document.createElementNS(NS, 'title');
     t.textContent = u.n;
@@ -351,7 +671,38 @@
       e.stopPropagation();
       onSubClick(u, g);
     });
+
     subLayer.appendChild(g);
+
+    var m = { ax: ax, ay: ay, px: cfg.px, py: cfg.py, vg: vg, line: line };
+    markerEls.push(m);
+    layoutMarker(m);
+  }
+
+  /** 1 个屏幕像素等于多少个省份层单位 */
+  function subUnitsPerPx() {
+    if (!svgRect) refreshRect();
+    var boxW = (svgRect && svgRect.width) || 1000;
+    var boxH = (svgRect && svgRect.height) || 404;
+    var pxPerUnit = Math.min(boxW / view.w, boxH / view.h);
+    if (!isFinite(pxPerUnit) || pxPerUnit <= 0) pxPerUnit = 1;
+    return 1 / (pxPerUnit * SUB_SCALE);
+  }
+
+  function layoutMarker(m) {
+    var s = subUnitsPerPx();
+    var x = m.ax + m.px * s;
+    var y = m.ay + m.py * s;
+    m.vg.setAttribute('transform', 'translate(' + x + ',' + y + ') scale(' + s + ')');
+    m.line.setAttribute('x1', m.ax);
+    m.line.setAttribute('y1', m.ay);
+    m.line.setAttribute('x2', x);
+    m.line.setAttribute('y2', y);
+  }
+
+  function sizeMarkers() {
+    if (!markerEls.length) return;
+    for (var i = 0; i < markerEls.length; i++) layoutMarker(markerEls[i]);
   }
 
   // ---------- 城市点 ----------
@@ -1040,7 +1391,6 @@
   // ---------- 鼠标跟随标签 ----------
   // 原生 <title> 要悬停一秒才出现，这里做一个跟手的小标签
   var mapHoverEl = document.getElementById('mapHover');
-  var mapPanelEl = document.querySelector('.map-panel');
   var lastHoverKey = '';
 
   function hideHover() {
@@ -1111,17 +1461,33 @@
   portalPanel.hidden = true;
   catPanel.hidden = true;
 
-  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + map.height);
+  refreshRect();
+  view = { x: 0, y: 0, w: W, h: WORLD_H };
+  homeView = { x: 0, y: 0, w: W, h: WORLD_H };
+  applyView();
 
   renderCategories();
   renderChips();
   updateBreadcrumb();
   renderPortals();
   renderHot();
-  updateScaleBar();
   renderWorldClock();
   renderNote(pickNote());
   fetchRemote(); // 预取一条，第一次点击就能出远程内容
+
+  // 入场：从略微拉远的位置轻轻推近，配合陆地错峰淡入
+  if (!prefersReducedMotion()) {
+    view = { x: -W * 0.03, y: -WORLD_H * 0.03, w: W * 1.06, h: WORLD_H * 1.06 };
+    applyViewBox();
+    tweenTo({ x: 0, y: 0, w: W, h: WORLD_H }, 900);
+  }
+
+  // 字体和布局稳定后重量一次比例尺，避免首帧量到 0
+  window.addEventListener('load', function () {
+    refreshRect();
+    updateScaleBar();
+  });
+
   // 每分钟对一次时（纯本地计算，不发请求）
   setInterval(renderWorldClock, 60 * 1000);
 })();
