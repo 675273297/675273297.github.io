@@ -16,7 +16,6 @@
   var portals = window.PORTALS || [];
   var categories = window.CATEGORIES || [];
   var subs = window.SUBDIVISIONS || {};
-  var hot = window.HOT_NEWS || null;
 
   if (!map) return;
 
@@ -528,34 +527,24 @@
   function renderPortals() {
     var q = buildQuery();
 
-    if (!q) {
-      portalSelect.classList.remove('is-active');
-      portalCurIcon.hidden = true;
-      portalIconRow.hidden = true;
-      portalIconRow.innerHTML = ''; // 同时清掉旧链接，避免条件清空后残留上一次的地区
-      portalEmpty.hidden = false;
-      closeAllDropdowns();
-      return;
-    }
-
+    // 没有查询词时也要能点：落到各平台自己的热搜/首页
+    portalEmpty.textContent = q
+      ? '已带上条件，点平台即可搜索'
+      : '点平台直接打开热搜；先输入关键词或选地区，就会带上查询词';
+    portalIconRow.hidden = false;
     portalSelect.classList.add('is-active');
-
-    // 工具条上的小图标：默认展示第一个平台的色点
     portalCurIcon.hidden = false;
     portalCurIcon.innerHTML = '<span class="mini-dot" style="background:' + portals[0].color + '"></span>';
-
-    portalEmpty.hidden = true;
-    portalIconRow.hidden = false;
 
     // 快捷入口：一行展示全部
     portalIconRow.innerHTML = '';
     portals.forEach(function (p) {
       var a = document.createElement('a');
       a.className = 'portal-mini';
-      a.href = p.url(q);
+      a.href = q ? p.url(q) : p.home;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
-      a.title = p.name + ' 搜索「' + q + '」';
+      a.title = q ? p.name + ' 搜索「' + q + '」' : '打开' + p.name + '热搜';
       a.innerHTML =
         '<span class="mini-dot" style="background:' + p.color + '"></span>' +
         '<span class="mini-name">' + esc(p.name) + '</span>';
@@ -567,143 +556,85 @@
 
   function renderPanelList(q) {
     portalPanelList.innerHTML = '';
+    var hint = document.querySelector('#portalPanel .panel-hint');
+    if (hint) {
+      hint.textContent = q
+        ? '选一个平台，在新标签页打开已填好查询词的搜索页'
+        : '选一个平台，打开它自己的热搜榜';
+    }
     portals.forEach(function (p) {
       var a = document.createElement('a');
       a.className = 'panel-item';
-      a.href = p.url(q);
+      a.href = q ? p.url(q) : p.home;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
       a.innerHTML =
         '<span class="panel-dot" style="background:' + p.color + '"></span>' +
         '<span class="panel-text">' +
         '<span class="panel-name">' + esc(p.name) + '</span>' +
-        '<span class="panel-desc">' + esc(p.desc) + '</span>' +
+        '<span class="panel-desc">' + esc(q ? p.desc : '打开热搜榜') + '</span>' +
         '</span>';
       a.addEventListener('click', function () { portalDrop.close(); });
       portalPanelList.appendChild(a);
     });
   }
 
-  // 打开平台面板时刷新内容
+  // 打开平台面板时刷新内容（没有查询词也要列出全部平台）
   portalSelect.addEventListener('click', function () {
-    var q = buildQuery();
-    if (q) renderPanelList(q);
+    renderPanelList(buildQuery());
   });
 
-  // ---------- 热搜榜（随地图选择联动） ----------
-  var regionKws = window.REGION_KEYWORDS || {};
-  var hotTitleEl = document.getElementById('hotTitle');
+  // ---------- 多平台热搜（手动切换） ----------
   var hotFootEl = document.getElementById('hotFoot');
-  var regionBlock = document.getElementById('regionBlock');
-  var regionTitleEl = document.getElementById('regionTitle');
-  var regionLinksEl = document.getElementById('regionLinks');
+  var boardTabsEl = document.getElementById('boardTabs');
+  var hotData = window.HOT_BOARDS || { boards: [] };
+  var activeBoardId = null;
 
-  /**
-   * 选中地区时，从全国热搜里筛出提及该地区的条目。
-   * 各平台都没有省级热搜接口（实测百度/微博/知乎/头条均无地域维度，
-   * 头条的 city_id 参数实际被忽略），所以筛不到时就如实退回全国热搜并说明。
-   */
-  function pickHotItems() {
-    var all = (hot && hot.items) || [];
-    var region = state.subName || state.countryName;
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
-    // 没选地区 → 全国热搜
-    if (!region) {
-      return { items: all.slice(0, 10), mode: 'national', region: null };
-    }
+  function fmtTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
 
-    // 找关键词表：先按省名，再按去掉后缀的国家名
-    var keys = regionKws[region];
-    if (!keys) {
-      var short = region.replace(/特别行政区|维吾尔自治区|自治区|省|市/g, '');
-      keys = regionKws[short] || [short, region];
-    }
-
-    var hits = all.filter(function (it) {
-      var w = it.word || '';
-      for (var i = 0; i < keys.length; i++) {
-        if (keys[i] && w.indexOf(keys[i]) !== -1) return true;
-      }
-      return false;
+  function renderBoardTabs() {
+    boardTabsEl.innerHTML = '';
+    (hotData.boards || []).forEach(function (b) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'board-tab' + (b.id === activeBoardId ? ' is-active' : '');
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', b.id === activeBoardId ? 'true' : 'false');
+      btn.innerHTML =
+        '<span class="board-dot" style="background:' + b.color + '"></span>' +
+        '<span class="board-name">' + esc(b.name) + '</span>';
+      btn.addEventListener('click', function () {
+        activeBoardId = b.id;
+        renderBoardTabs();
+        renderHotList();
+      });
+      boardTabsEl.appendChild(btn);
     });
-
-    return { items: hits.slice(0, 10), mode: 'region', region: region };
   }
 
-  // ---------- 地区搜索入口（方案 A） ----------
-  // 各平台都没有分省热搜，所以右侧改为给出「去该地区的实时新闻页」的直达入口：
-  // 链接由对方平台实时生成，我们只负责把地区词拼进查询，不抓取、不缓存。
-
-  /** 地区搜索专用站：按「地区 + 新闻」拼词 */
-  var REGION_SOURCES = [
-    { name: '百度新闻', color: '#2932E1', url: function (q) { return 'https://www.baidu.com/s?tn=news&wd=' + encodeURIComponent(q); } },
-    { name: '今日头条', color: '#F04142', url: function (q) { return 'https://so.toutiao.com/search?keyword=' + encodeURIComponent(q); } },
-    { name: '微博', color: '#E6162D', url: function (q) { return 'https://s.weibo.com/weibo?q=' + encodeURIComponent(q); } },
-    { name: '知乎', color: '#0084FF', url: function (q) { return 'https://www.zhihu.com/search?type=content&q=' + encodeURIComponent(q); } },
-    { name: '抖音', color: '#161823', url: function (q) { return 'https://www.douyin.com/search/' + encodeURIComponent(q); } },
-  ];
-
-  /** 去掉「省 / 市 / 自治区 / 特别行政区」等后缀，只用于显示 */
-  function shortName(name) {
-    return String(name).replace(/维吾尔自治区|回族自治区|壮族自治区|特别行政区|自治区|省|市$/g, '') || name;
-  }
-
-  function renderRegionBlock() {
-    var region = state.subName || state.countryName;
-    if (!region) {
-      regionBlock.hidden = true;
-      regionLinksEl.innerHTML = '';
+  function renderHotList() {
+    var boards = hotData.boards || [];
+    if (!boards.length) {
+      hotListEl.innerHTML = '<p class="hot-loading">暂无数据</p>';
+      hotFootEl.textContent = '';
       return;
     }
 
-    regionBlock.hidden = false;
-    regionTitleEl.textContent = shortName(region) + ' · 去逛逛';
+    // 默认选第一个（百度）
+    if (!activeBoardId) activeBoardId = boards[0].id;
+    var board = boards.filter(function (b) { return b.id === activeBoardId; })[0] || boards[0];
 
-    var q = region + ' 新闻';
-    regionLinksEl.innerHTML = '';
-    REGION_SOURCES.forEach(function (src) {
-      var a = document.createElement('a');
-      a.className = 'region-link';
-      a.href = src.url(q);
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.title = '在' + src.name + '搜索「' + q + '」';
-      a.innerHTML =
-        '<span class="panel-dot" style="background:' + src.color + '"></span>' +
-        '<span class="region-link-name">' + esc(src.name) + '</span>' +
-        '<span class="region-link-go" aria-hidden="true">↗</span>';
-      regionLinksEl.appendChild(a);
-    });
-  }
+    hotUpdatedEl.textContent = fmtTime(board.updated || hotData.updated);
 
-  function renderHot() {
-    renderRegionBlock();
-
-    var picked = pickHotItems();
-    var items = picked.items;
-
-    // 标题随地区切换
-    if (hotTitleEl) {
-      if (picked.mode === 'region') {
-        hotTitleEl.textContent = shortName(picked.region) + ' 相关热搜';
-      } else {
-        hotTitleEl.textContent = '热搜榜';
-      }
-      hotTitleEl.classList.toggle('is-region', picked.mode === 'region');
-    }
-
-    // 筛不到地区热搜时如实说明，不留空白也不假装有
-    var noteHtml = '';
-    if (picked.mode === 'region') {
-      noteHtml = '';
-    } else if (picked.mode === 'national' && !(hot && hot.items && hot.items.length)) {
-      noteHtml = '';
-    }
-    if (picked.mode === 'region' && !items.length) {
-      noteHtml = '<p class="hot-note">「' + esc(shortName(picked.region)) + '」暂时没有上榜的全国热搜</p>';
-    }
-
-    hotListEl.innerHTML = noteHtml;
+    var items = board.items || [];
+    hotListEl.innerHTML = '';
     items.forEach(function (it, i) {
       var a = document.createElement('a');
       a.className = 'hot-item';
@@ -712,33 +643,22 @@
       a.rel = 'noopener noreferrer';
       a.innerHTML =
         '<span class="hot-rank' + (i < 3 ? ' is-top' : '') + '">' + (i + 1) + '</span>' +
-        '<span class="hot-word">' + esc(it.word) + '</span>';
+        '<span class="hot-word">' + esc(it.title) + '</span>' +
+        (it.hot ? '<span class="hot-value">' + esc(it.hot) + '</span>' : '');
       hotListEl.appendChild(a);
     });
 
-    if (!items.length && !noteHtml) {
-      hotListEl.innerHTML = '<p class="hot-loading">暂无数据</p>';
+    if (!items.length) {
+      hotListEl.innerHTML = '<p class="hot-loading">这个平台暂时没有数据</p>';
     }
 
-    // 页脚说明随模式变化
-    if (hotFootEl) {
-      if (picked.mode === 'region') {
-        hotFootEl.textContent = '全国热搜中提及「' + shortName(picked.region) + '」的条目 · 数据来自百度';
-      } else if (picked.region) {
-        hotFootEl.textContent = '各平台均无省级热搜，这里显示全国热搜 · 数据来自百度';
-      } else {
-        hotFootEl.textContent = '数据来自百度热搜，点击跳转';
-      }
-    }
+    hotFootEl.textContent = board.name + '热搜 · 共 ' + items.length + ' 条 · 点击跳转';
+  }
 
-    if (hot && hot.updated) {
-      var d = new Date(hot.updated);
-      if (!isNaN(d.getTime())) {
-        var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
-        hotUpdatedEl.textContent =
-          pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-      }
-    }
+  /** 热搜面板不再随地图地区联动，只做平台切换；地区搜索走左下的平台入口 */
+  function renderHot() {
+    renderBoardTabs();
+    renderHotList();
   }
 
   // ---------- 搜索 ----------
