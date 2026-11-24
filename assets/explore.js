@@ -692,7 +692,7 @@
   // ---------- 世界时钟 ----------
   // 时间由浏览器按 IANA 时区真实换算，不依赖任何接口
   var CLOCK_CITIES = [
-    { name: '东京', tz: 'Asia/Tokyo' },
+    { name: '北京', tz: 'Asia/Shanghai' },
     { name: '巴黎', tz: 'Europe/Paris' },
     { name: '纽约', tz: 'America/New_York' },
     { name: '悉尼', tz: 'Australia/Sydney' },
@@ -742,33 +742,102 @@
     });
   }
 
-  /** 根据各城市昼夜状态拼一句真实描述（不编造天气） */
-  function renderMood() {
-    var moodEl = document.getElementById('worldMood');
-    if (!moodEl) return;
+  /** 依据各城市昼夜状态拼一句真实描述 */
+  function dayNightText() {
     var day = [];
     var night = [];
     CLOCK_CITIES.forEach(function (c) {
       (isDaytime(c.tz) ? day : night).push(c.name);
     });
-    var text;
     if (day.length && night.length) {
-      text = day.join('、') + '还是白天，' + night.join('、') + '已经入夜';
-    } else if (day.length === CLOCK_CITIES.length) {
-      text = '这几个城市此刻都是白天';
-    } else if (night.length === CLOCK_CITIES.length) {
-      text = '这几个城市此刻都在夜里';
-    } else {
-      text = '世界正安静地转动';
+      return day.join('、') + '还是白天，' + night.join('、') + '已经入夜';
     }
-    moodEl.textContent = text;
+    if (day.length === CLOCK_CITIES.length) return '这几个城市此刻都是白天';
+    if (night.length === CLOCK_CITIES.length) return '这几个城市此刻都在夜里';
+    return '世界正安静地转动';
+  }
+
+  // ---------- 随手一条 ----------
+  // 点「随便逛逛」时换一条。历史条目均为可查证事件；
+  // 名言歌词标注出处；童年游戏与童梦是回忆性文字，不作事实断言。
+  var NOTES = [
+    // 历史上的一瞬
+    { k: '史上一瞬', t: '1969 年，阿波罗 11 号降落静海。阿姆斯特朗说：这是个人的一小步，却是人类的一大步。' },
+    { k: '史上一瞬', t: '1905 年，26 岁的爱因斯坦一年内发表四篇论文，后来被称为他的「奇迹年」。' },
+    { k: '史上一瞬', t: '1989 年，蒂姆·伯纳斯-李在 CERN 提出超文本系统构想，万维网从此发芽。' },
+    { k: '史上一瞬', t: '1953 年，沃森与克里克在《自然》发表 DNA 双螺旋结构，生命的密码本被翻开。' },
+    { k: '史上一瞬', t: '1687 年，牛顿出版《自然哲学的数学原理》，天上与地上的力第一次被同一套公式描述。' },
+    { k: '史上一瞬', t: '公元前三世纪，欧几里得用反证法证明：素数有无限多个。' },
+
+    // 诗与文
+    { k: '一句', t: '人生如逆旅，我亦是行人。', f: '苏轼《临江仙》' },
+    { k: '一句', t: '黑夜给了我黑色的眼睛，我却用它寻找光明。', f: '顾城《一代人》' },
+    { k: '一句', t: '凡是过往，皆为序章。', f: '莎士比亚《暴风雨》' },
+    { k: '一句', t: '在冬天的深处，我终于明白，我身上有一个不可战胜的夏天。', f: '加缪《夏天集》' },
+    { k: '一句', t: '此心安处是吾乡。', f: '苏轼《定风波》' },
+
+    // 歌
+    { k: '一句歌', t: '我曾经跨过山和大海，也穿过人山人海。', f: '朴树《平凡之路》' },
+    { k: '一句歌', t: '越过山丘，虽然已白了头。', f: '李宗盛《山丘》' },
+    { k: '一句歌', t: '逆风的方向，更适合飞翔。', f: '五月天《倔强》' },
+    { k: '一句歌', t: '我来到你的城市，走过你来时的路。', f: '陈奕迅《好久不见》' },
+
+    // 数学
+    { k: '一个式子', t: 'e^(iπ) + 1 = 0。五个最重要的常数挤在一行里，被称为最优美的等式。' },
+    { k: '一个式子', t: '0.999… 和 1 是同一个数，不是「约等于」。' },
+    { k: '一个事实', t: '生日悖论：只要 23 个人，就有超过一半的概率存在两人同一天生日。' },
+    { k: '一个事实', t: '布丰投针：往画满平行线的地板上随手扔针，数一数就能算出圆周率。' },
+    { k: '一个事实', t: '1 + 2 + 3 + … 在黎曼 ζ 函数的正则化下等于 −1/12。反直觉，但并非胡说。' },
+
+    // 童年游戏
+    { k: '小时候', t: '跳皮筋：两人扯着橡皮筋，从脚踝、膝盖、腰、胸，一路升到头顶，跳到最后几乎是仰着头在蹦。' },
+    { k: '小时候', t: '丢沙包：两边的人扔，中间的人躲。被砸中就下场，接住一次能加一条命。' },
+    { k: '小时候', t: '翻花绳：一根打了结的线，两人轮着翻，能翻出「面条」「牛眼」「降落伞」。' },
+    { k: '小时候', t: '跳房子：地上用粉笔画格子，单脚双脚换着跳，踢着瓦片不许压线。' },
+    { k: '小时候', t: '拍画片：把印着人物的硬纸片摆在地上，用手掌扇，翻过面就算赢。' },
+
+    // 童梦
+    { k: '小时候', t: '小时候想当科学家，现在只想早点睡。' },
+    { k: '小时候', t: '小时候以为长大就能随便熬夜，长大以后才发现，能早睡才是本事。' },
+    { k: '小时候', t: '曾梦想当宇航员，后来发现光是坐地铁就够晕了。' },
+    { k: '小时候', t: '小时候觉得大人什么都知道，长大才发现，大家都是在边猜边走。' },
+  ];
+
+  var noteIndex = -1;
+
+  function pickNote() {
+    // 避免连续两次抽到同一条
+    var next = noteIndex;
+    if (NOTES.length > 1) {
+      while (next === noteIndex) next = Math.floor(Math.random() * NOTES.length);
+    } else {
+      next = 0;
+    }
+    noteIndex = next;
+    return NOTES[noteIndex];
+  }
+
+  function renderNote(note) {
+    var moodEl = document.getElementById('worldMood');
+    if (!moodEl) return;
+    if (!note) {
+      moodEl.textContent = dayNightText();
+      return;
+    }
+    moodEl.innerHTML =
+      '<span class="note-label">' + esc(note.k) + '</span>' +
+      '<span class="note-text">' + esc(note.t) + '</span>' +
+      (note.f ? '<span class="note-from">—— ' + esc(note.f) + '</span>' : '');
   }
 
   // ---------- 随便逛逛 ----------
   var randomBtn = document.getElementById('randomBtn');
 
   randomBtn.addEventListener('click', function () {
-    // 优先在所有国家里随机；有省份数据的国家再随机选一个省份
+    // 每次点击先换一条闲话
+    renderNote(pickNote());
+
+    // 再随机去一个国家；有省份数据的国家顺带随机选一个省份
     var all = (map.countries || []).filter(function (c) { return c.c && c.d; });
     if (!all.length) return;
     var pick = all[Math.floor(Math.random() * all.length)];
@@ -777,7 +846,6 @@
     if (subData && subData.units && subData.units.length) {
       showCountry(pick.c);
       state.countryName = pick.n;
-      // 顺带随机选一个省份
       var units = subData.units.filter(function (u) { return u.n; });
       if (units.length) {
         var u = units[Math.floor(Math.random() * units.length)];
@@ -890,10 +958,7 @@
   renderHot();
   updateScaleBar();
   renderWorldClock();
-  renderMood();
+  renderNote(pickNote());
   // 每分钟对一次时，跨整点也能跟着走
-  setInterval(function () {
-    renderWorldClock();
-    renderMood();
-  }, 60 * 1000);
+  setInterval(renderWorldClock, 60 * 1000);
 })();
