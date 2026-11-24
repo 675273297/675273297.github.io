@@ -347,6 +347,42 @@
   user-select: none;
 }
 
+/* 缩放控件：右上角竖排（左下留给比例尺） */
+.map-zoom {
+  position: absolute;
+  right: 22px;
+  top: 20px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zoom-btn {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, .94);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color .18s, border-color .18s, opacity .2s, transform .18s;
+}
+.zoom-btn:hover:not(:disabled) {
+  color: var(--moss);
+  border-color: var(--clay-soft);
+}
+.zoom-btn:active:not(:disabled) { transform: scale(.94); }
+.zoom-btn:disabled { opacity: .32; cursor: default; }
+
+.zoom-reset { font-size: 13px; }
+
 .map-svg {
   display: block;
   width: 100%;
@@ -355,8 +391,16 @@
      配合 SVG 默认的 xMidYMid meet，内容自动居中，不同国家只是留白不同。 */
   height: clamp(300px, 34vw, 404px);
   position: relative;
-  touch-action: manipulation;
+  touch-action: pan-y; /* 未放大时，手指上下滑动交还给页面滚动 */
 }
+
+/* 放大之后才接管手势，允许任意方向拖动 */
+.map-panel.is-zoomed .map-svg { touch-action: none; }
+
+/* 拖动中：光标变成抓手，并且不再触发悬停高亮 */
+.map-svg.is-dragging { cursor: grabbing; }
+.map-svg.is-dragging .country,
+.map-svg.is-dragging .subunit { cursor: grabbing; }
 
 /* 陆地：比海洋深一档，带轻微描边提升轮廓 */
 .map-svg .country {
@@ -418,6 +462,8 @@
   stroke-dasharray: 3 3;
   opacity: .5;
   pointer-events: none;
+  /* 线宽按屏幕像素固定，放大后引线不会变成粗管子 */
+  vector-effect: non-scaling-stroke;
 }
 
 .map-svg .marker-dot {
