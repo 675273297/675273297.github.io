@@ -1,10 +1,13 @@
 name: 更新热搜数据
 
-# 每 10 分钟抓一次百度热搜，写入 assets/hot-news.js
-# 浏览器无法直接请求百度接口（跨域），所以由定时任务抓取后存成静态文件
+# 抓取百度/微博/知乎/B站/头条热搜，写入 assets/hot-boards.js
+# 浏览器无法直接请求这些接口（跨域），所以由定时任务抓取后存成静态文件
+#
+# 注意：GitHub 的 schedule 不保证准时，高峰期会跳过。
+# 因此这里用每小时一次（比每 10 分钟可靠得多），接受数据最多 1 小时延迟。
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '17 * * * *' # 避开整点高峰，每小时 17 分跑
   workflow_dispatch: # 允许在 Actions 页面手动触发
 
 permissions:
@@ -22,14 +25,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 抓取百度热搜
-        run: node tools/fetch-hot.mjs
+      - name: 抓取各平台热搜
+        run: node tools/fetch-boards.mjs
 
       - name: 提交更新
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/hot-news.js
+          git add assets/hot-boards.js
           if git diff --staged --quiet; then
             echo "热搜无变化，跳过提交"
           else
