@@ -493,7 +493,10 @@
     closeAllDropdowns();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeAllDropdowns();
+    if (e.key !== 'Escape') return;
+    closeAllDropdowns();
+    // Esc 兼作「退回上一级」：省份视图回到世界，作为按钮的兜底
+    if (state.level === 'sub') showWorld();
   });
 
   // ---------- 类型下拉 ----------
@@ -758,9 +761,13 @@
   }
 
   // ---------- 随手一条 ----------
-  // 点「随便逛逛」时换一条。历史条目均为可查证事件；
-  // 名言歌词标注出处；童年游戏与童梦是回忆性文字，不作事实断言。
-  var NOTES = [
+  // 两个来源：
+  //   1) 远程句子 API（一言 hitokoto）—— 几十万条，可以一直不重复
+  //   2) 本地特色池 —— 史上一瞬 / 数学 / 童年游戏，API 里没有这类内容
+  // 远程失败（断网、被墙、接口挂了）自动降级为只用本地池，功能不中断。
+
+  /** 本地特色池：这些内容 API 拿不到 */
+  var LOCAL_NOTES = [
     // 历史上的一瞬
     { k: '史上一瞬', t: '1969 年，阿波罗 11 号降落静海。阿姆斯特朗说：这是个人的一小步，却是人类的一大步。' },
     { k: '史上一瞬', t: '1905 年，26 岁的爱因斯坦一年内发表四篇论文，后来被称为他的「奇迹年」。' },
@@ -768,19 +775,8 @@
     { k: '史上一瞬', t: '1953 年，沃森与克里克在《自然》发表 DNA 双螺旋结构，生命的密码本被翻开。' },
     { k: '史上一瞬', t: '1687 年，牛顿出版《自然哲学的数学原理》，天上与地上的力第一次被同一套公式描述。' },
     { k: '史上一瞬', t: '公元前三世纪，欧几里得用反证法证明：素数有无限多个。' },
-
-    // 诗与文
-    { k: '一句', t: '人生如逆旅，我亦是行人。', f: '苏轼《临江仙》' },
-    { k: '一句', t: '黑夜给了我黑色的眼睛，我却用它寻找光明。', f: '顾城《一代人》' },
-    { k: '一句', t: '凡是过往，皆为序章。', f: '莎士比亚《暴风雨》' },
-    { k: '一句', t: '在冬天的深处，我终于明白，我身上有一个不可战胜的夏天。', f: '加缪《夏天集》' },
-    { k: '一句', t: '此心安处是吾乡。', f: '苏轼《定风波》' },
-
-    // 歌
-    { k: '一句歌', t: '我曾经跨过山和大海，也穿过人山人海。', f: '朴树《平凡之路》' },
-    { k: '一句歌', t: '越过山丘，虽然已白了头。', f: '李宗盛《山丘》' },
-    { k: '一句歌', t: '逆风的方向，更适合飞翔。', f: '五月天《倔强》' },
-    { k: '一句歌', t: '我来到你的城市，走过你来时的路。', f: '陈奕迅《好久不见》' },
+    { k: '史上一瞬', t: '1820 年，奥斯特发现通电导线能让指南针偏转，电与磁第一次被连在一起。' },
+    { k: '史上一瞬', t: '1957 年，斯普特尼克一号升空，人类的第一颗人造卫星开始绕地球转。' },
 
     // 数学
     { k: '一个式子', t: 'e^(iπ) + 1 = 0。五个最重要的常数挤在一行里，被称为最优美的等式。' },
@@ -788,6 +784,8 @@
     { k: '一个事实', t: '生日悖论：只要 23 个人，就有超过一半的概率存在两人同一天生日。' },
     { k: '一个事实', t: '布丰投针：往画满平行线的地板上随手扔针，数一数就能算出圆周率。' },
     { k: '一个事实', t: '1 + 2 + 3 + … 在黎曼 ζ 函数的正则化下等于 −1/12。反直觉，但并非胡说。' },
+    { k: '一个事实', t: '莫比乌斯环只有一个面、一条边。沿着它走一圈，会回到起点却翻了个面。' },
+    { k: '一个事实', t: '任意六个人里，总能找到三个互相认识或三个互相不认识的人。' },
 
     // 童年游戏
     { k: '小时候', t: '跳皮筋：两人扯着橡皮筋，从脚踝、膝盖、腰、胸，一路升到头顶，跳到最后几乎是仰着头在蹦。' },
@@ -795,26 +793,125 @@
     { k: '小时候', t: '翻花绳：一根打了结的线，两人轮着翻，能翻出「面条」「牛眼」「降落伞」。' },
     { k: '小时候', t: '跳房子：地上用粉笔画格子，单脚双脚换着跳，踢着瓦片不许压线。' },
     { k: '小时候', t: '拍画片：把印着人物的硬纸片摆在地上，用手掌扇，翻过面就算赢。' },
+    { k: '小时候', t: '打弹珠：地上挖个小坑，用手指把玻璃珠弹进去，赢的人把对方的珠子收走。' },
+    { k: '小时候', t: '滚铁环：一根铁钩推着一个铁圈跑，谁先跑到路口谁赢，铁环倒了就得重来。' },
+    { k: '小时候', t: '折纸飞机：折好先哈一口气，再用力甩出去，比谁的飞得远、飞得久。' },
 
     // 童梦
     { k: '小时候', t: '小时候想当科学家，现在只想早点睡。' },
     { k: '小时候', t: '小时候以为长大就能随便熬夜，长大以后才发现，能早睡才是本事。' },
     { k: '小时候', t: '曾梦想当宇航员，后来发现光是坐地铁就够晕了。' },
     { k: '小时候', t: '小时候觉得大人什么都知道，长大才发现，大家都是在边猜边走。' },
+    { k: '小时候', t: '小时候攒了一抽屉石头，觉得每一块都是宝石。' },
   ];
 
-  var noteIndex = -1;
+  /** 一言的类型代码 -> 中文标签 */
+  var HITO_TYPE = {
+    a: '动画', b: '漫画', c: '游戏', d: '文学', e: '原创',
+    f: '网络', g: '杂句', h: '影视', i: '诗词', j: '乐评',
+    k: '哲学', l: '抖机灵',
+  };
 
-  function pickNote() {
-    // 避免连续两次抽到同一条
-    var next = noteIndex;
-    if (NOTES.length > 1) {
-      while (next === noteIndex) next = Math.floor(Math.random() * NOTES.length);
-    } else {
-      next = 0;
+  var remoteQueue = [];   // 已缓存、待展示的远程句子
+  var seenRemote = {};    // 已展示过的远程 id，避免重复
+  var remoteDown = false; // 连续失败后暂停请求，避免一直打接口
+  var fetching = false;
+  var localBag = [];      // 洗牌袋：一轮内不重复
+  var noteSeq = 0;        // 点击计数，用于插入本地特色内容
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
     }
-    noteIndex = next;
-    return NOTES[noteIndex];
+    return a;
+  }
+
+  /** 洗牌袋取本地一条：一轮取完才重置，保证短期不重复 */
+  function nextLocal() {
+    if (!localBag.length) {
+      localBag = shuffle(LOCAL_NOTES.slice());
+    }
+    return localBag.pop();
+  }
+
+  function formatFrom(j) {
+    var who = (j.from_who || '').trim();
+    var from = (j.from || '').trim();
+    if (who && from) return who + '《' + from + '》';
+    if (who) return who;
+    if (from) return '《' + from + '》';
+    return '';
+  }
+
+  /** 拉一条远程句子进缓存 */
+  function fetchRemote() {
+    if (fetching || remoteDown || remoteQueue.length >= 3) return;
+    fetching = true;
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 6000) : null;
+
+    fetch('https://v1.hitokoto.cn/?encode=json&max_length=56', {
+      signal: ctrl ? ctrl.signal : undefined,
+      mode: 'cors',
+      cache: 'no-store',
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j || !j.hitokoto) return;
+        var id = j.uuid || String(j.id);
+        if (seenRemote[id]) return;
+        remoteQueue.push({
+          k: HITO_TYPE[j.type] || '一句',
+          t: j.hitokoto,
+          f: formatFrom(j),
+          id: id,
+        });
+      })
+      .catch(function () {
+        // 连续失败就暂时不用远程，页面照常用本地池
+        remoteDown = true;
+      })
+      .then(function () {
+        if (timer) clearTimeout(timer);
+        fetching = false;
+      });
+  }
+
+  /** 给下一次点击准备素材：补齐远程缓存 */
+  function primeNotes() {
+    fetchRemote();
+    fetchRemote();
+  }
+
+  /**
+   * 取一条要展示的内容。
+   * 每 4 次点击插入一条本地特色内容，其余走远程；
+   * 远程没有缓存时立即返回本地，绝不让界面等待。
+   */
+  function pickNote() {
+    noteSeq++;
+
+    var useLocal = noteSeq % 4 === 0 || (remoteQueue.length === 0 && remoteDown);
+    if (useLocal) {
+      // 用掉之后补一条远程，下次就有货
+      primeNotes();
+      return nextLocal();
+    }
+
+    if (remoteQueue.length) {
+      var item = remoteQueue.shift();
+      seenRemote[item.id] = 1;
+      primeNotes(); // 边用边补
+      return item;
+    }
+
+    // 还在等远程：先用本地顶上
+    primeNotes();
+    return nextLocal();
   }
 
   function renderNote(note) {
@@ -959,6 +1056,7 @@
   updateScaleBar();
   renderWorldClock();
   renderNote(pickNote());
+  primeNotes(); // 预热远程句子缓存，第一次点击就能秒出
   // 每分钟对一次时，跨整点也能跟着走
   setInterval(renderWorldClock, 60 * 1000);
 })();
