@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://mandao.life/explore.html">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles/global.css">
-<link rel="stylesheet" href="styles/explore.css?v=5">
+<link rel="stylesheet" href="styles/explore.css?v=6">
 </head>
 <body>
 
@@ -98,18 +98,31 @@
             <span aria-hidden="true">←</span> 返回世界
           </button>
           <svg id="map" class="map-svg" role="img" aria-label="世界地图，点击国家进入，再点省份"></svg>
+          <div id="mapHover" class="map-hover" hidden aria-hidden="true"></div>
           <p class="map-tip">点国家进入 &middot; 再点省份</p>
         </div>
 
-        <!-- 快捷入口：一行 -->
-        <div class="quick-row">
-          <span id="portalEmpty" class="quick-hint">点平台直接打开热搜；先输入关键词或选地区，就会带上查询词</span>
-          <div id="portalIconRow" class="quick-icons" hidden></div>
+        <!-- 地图下方的门户条：随机漫游 + 世界时钟 -->
+        <div class="portal-strip">
+          <div class="portal-strip-main">
+            <button id="randomBtn" class="random-btn" type="button" title="随机去一个地方">
+              <svg class="random-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/>
+                <circle cx="15.5" cy="15.5" r="1.4" fill="currentColor"/>
+                <circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/>
+                <circle cx="8.5" cy="15.5" r="1.4" fill="currentColor"/>
+              </svg>
+              <span>随便逛逛</span>
+            </button>
+            <div id="worldClock" class="world-clock" aria-label="世界此刻"></div>
+          </div>
+          <p id="worldMood" class="world-mood"></p>
         </div>
 
       </div>
 
-      <!-- 右侧：多平台热搜（手动切换） -->
+      <!-- 右侧：多平台热搜（手动切换 + 分页） -->
       <aside class="side-panel">
         <div class="hot-head">
           <h2 class="side-title">热搜榜</h2>
@@ -121,6 +134,8 @@
         <div id="hotList" class="hot-list" role="tabpanel">
           <p class="hot-loading">加载中…</p>
         </div>
+
+        <div id="hotPager" class="hot-pager"></div>
 
         <p id="hotFoot" class="hot-foot">点击条目跳转到平台</p>
       </aside>
@@ -146,7 +161,7 @@
 <script src="assets/subdivisions.js"></script>
 <script src="assets/hot-boards.js"></script>
 <script src="assets/region-keywords.js"></script>
-<script src="assets/explore.js?v=5"></script>
+<script src="assets/explore.js?v=6"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 </script>
