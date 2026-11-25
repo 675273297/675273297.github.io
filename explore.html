@@ -10,7 +10,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles/global.css">
 <link rel="stylesheet" href="styles/explore.css?v=7">
-<link rel="stylesheet" href="styles/ai-chat.css?v=3">
+<link rel="stylesheet" href="styles/ai-launcher.css?v=1">
 </head>
 <body>
 
@@ -128,58 +128,99 @@
           <p id="worldMood" class="world-mood"></p>
         </div>
 
-        <!-- 岛语：AI 闲聊角 -->
-        <section class="ai-panel" id="aiPanel" aria-labelledby="aiTitle">
-          <div class="ai-head">
-            <h2 class="ai-title" id="aiTitle">岛语</h2>
-            <span class="ai-sub">想说什么都行</span>
-            <div class="ai-head-actions">
-              <button id="aiSettingsBtn" class="ai-link-btn" type="button">设置</button>
-              <button id="aiClearBtn" class="ai-link-btn" type="button">清空</button>
-            </div>
+        <!-- AI 入口：官方网页版跳转 -->
+        <section class="ai-launch" aria-labelledby="aiLaunchTitle">
+          <div class="ai-launch-head">
+            <h2 class="ai-launch-title" id="aiLaunchTitle">AI 入口</h2>
+            <span class="ai-launch-sub">官方网页版 · 免费 · 点开就能聊</span>
           </div>
 
-          <div class="ai-log" id="aiLog" role="log" aria-live="polite"></div>
-          <div class="ai-empty" id="aiEmpty"></div>
+          <div class="ai-grid">
+            <a class="ai-card" href="https://chat.deepseek.com/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">D</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">DeepSeek <span class="ai-tag">通用</span></span>
+                <span class="ai-card-desc">推理强，写代码和讲逻辑都稳</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
 
-          <form class="ai-compose" id="aiForm" autocomplete="off">
-            <textarea id="aiInput" class="ai-input" rows="1" placeholder="说点什么…（Enter 发送，Shift + Enter 换行）" aria-label="输入消息"></textarea>
-            <button id="aiSend" class="ai-send" type="submit">发送</button>
-          </form>
+            <a class="ai-card" href="https://www.doubao.com/chat/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">豆</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">豆包 <span class="ai-tag">通用</span></span>
+                <span class="ai-card-desc">字节出品，中文口语顺，日常问答快</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
 
-          <p class="ai-foot">
-            <span class="ai-status" id="aiStatus" hidden></span>
-            <span>密钥只存在这台浏览器里，不会上传。</span>
+            <a class="ai-card" href="https://www.qianwen.com/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">千</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">千问 <span class="ai-tag">通用</span></span>
+                <span class="ai-card-desc">阿里出品，长文和看图都好用</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a class="ai-card" href="https://www.kimi.com/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">K</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">Kimi <span class="ai-tag">长文档</span></span>
+                <span class="ai-card-desc">丢整本书进去问，不心疼上下文</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a class="ai-card" href="https://chatglm.cn/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">智</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">智谱清言 <span class="ai-tag">工具</span></span>
+                <span class="ai-card-desc">清华系，能自己调工具干多步任务</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a class="ai-card" href="https://yuanbao.tencent.com/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">元</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">腾讯元宝 <span class="ai-tag">公众号</span></span>
+                <span class="ai-card-desc">能直接读公众号文章和微信资料</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a class="ai-card" href="https://wenxin.baidu.com/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">文</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">文心助手 <span class="ai-tag">通用</span></span>
+                <span class="ai-card-desc">百度出品，中文常识和办公场景</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a class="ai-card" href="https://metaso.cn/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">秘</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">秘塔搜索 <span class="ai-tag">搜索</span></span>
+                <span class="ai-card-desc">答案带出处，查资料比聊天靠谱</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
+
+            <a class="ai-card" href="https://xinghuo.xfyun.cn/" target="_blank" rel="noopener noreferrer">
+              <span class="ai-mark" aria-hidden="true">讯</span>
+              <span class="ai-card-body">
+                <span class="ai-card-name">讯飞星火 <span class="ai-tag">语音</span></span>
+                <span class="ai-card-desc">说话比打字省事，语音识别最稳</span>
+              </span>
+              <span class="ai-card-arrow" aria-hidden="true">↗</span>
+            </a>
+          </div>
+
+          <p class="ai-launch-foot">
+            都是各家官方网页版，免费使用。本站只做跳转，不保存你的任何对话。
           </p>
-
-          <div class="ai-settings" id="aiSettings" hidden>
-            <div class="ai-provider-tabs" id="aiProviderTabs" role="group" aria-label="选择服务商"></div>
-
-            <div class="ai-field">
-              <label for="aiKey">API Key</label>
-              <input id="aiKey" type="password" spellcheck="false" autocomplete="off" placeholder="粘贴你的密钥">
-            </div>
-
-            <div class="ai-field">
-              <label for="aiModel">模型</label>
-              <input id="aiModel" type="text" spellcheck="false" autocomplete="off" placeholder="模型名称">
-            </div>
-
-            <div class="ai-field">
-              <label for="aiBase">接口地址</label>
-              <input id="aiBase" type="text" spellcheck="false" autocomplete="off" placeholder="https://…/v1">
-            </div>
-
-            <p class="ai-note-line">
-              <span id="aiNote"></span>
-              <a id="aiKeyUrl" href="#" target="_blank" rel="noopener noreferrer">去领密钥 →</a>
-            </p>
-
-            <div class="ai-settings-actions">
-              <button id="aiSave" class="ai-btn-solid" type="button">保存</button>
-              <button id="aiCancel" class="ai-btn-plain" type="button">取消</button>
-            </div>
-          </div>
         </section>
 
       </div>
@@ -224,7 +265,6 @@
 <script src="assets/hot-boards.js"></script>
 <script src="assets/region-keywords.js"></script>
 <script src="assets/explore.js?v=7"></script>
-<script src="assets/ai-chat.js?v=4"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 </script>
