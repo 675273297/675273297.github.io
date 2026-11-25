@@ -10,6 +10,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles/global.css">
 <link rel="stylesheet" href="styles/explore.css?v=7">
+<link rel="stylesheet" href="styles/ai-chat.css?v=3">
 </head>
 <body>
 
@@ -127,6 +128,60 @@
           <p id="worldMood" class="world-mood"></p>
         </div>
 
+        <!-- 岛语：AI 闲聊角 -->
+        <section class="ai-panel" id="aiPanel" aria-labelledby="aiTitle">
+          <div class="ai-head">
+            <h2 class="ai-title" id="aiTitle">岛语</h2>
+            <span class="ai-sub">想说什么都行</span>
+            <div class="ai-head-actions">
+              <button id="aiSettingsBtn" class="ai-link-btn" type="button">设置</button>
+              <button id="aiClearBtn" class="ai-link-btn" type="button">清空</button>
+            </div>
+          </div>
+
+          <div class="ai-log" id="aiLog" role="log" aria-live="polite"></div>
+          <div class="ai-empty" id="aiEmpty"></div>
+
+          <form class="ai-compose" id="aiForm" autocomplete="off">
+            <textarea id="aiInput" class="ai-input" rows="1" placeholder="说点什么…（Enter 发送，Shift + Enter 换行）" aria-label="输入消息"></textarea>
+            <button id="aiSend" class="ai-send" type="submit">发送</button>
+          </form>
+
+          <p class="ai-foot">
+            <span class="ai-status" id="aiStatus" hidden></span>
+            <span>密钥只存在这台浏览器里，不会上传。</span>
+          </p>
+
+          <div class="ai-settings" id="aiSettings" hidden>
+            <div class="ai-provider-tabs" id="aiProviderTabs" role="group" aria-label="选择服务商"></div>
+
+            <div class="ai-field">
+              <label for="aiKey">API Key</label>
+              <input id="aiKey" type="password" spellcheck="false" autocomplete="off" placeholder="粘贴你的密钥">
+            </div>
+
+            <div class="ai-field">
+              <label for="aiModel">模型</label>
+              <input id="aiModel" type="text" spellcheck="false" autocomplete="off" placeholder="模型名称">
+            </div>
+
+            <div class="ai-field">
+              <label for="aiBase">接口地址</label>
+              <input id="aiBase" type="text" spellcheck="false" autocomplete="off" placeholder="https://…/v1">
+            </div>
+
+            <p class="ai-note-line">
+              <span id="aiNote"></span>
+              <a id="aiKeyUrl" href="#" target="_blank" rel="noopener noreferrer">去领密钥 →</a>
+            </p>
+
+            <div class="ai-settings-actions">
+              <button id="aiSave" class="ai-btn-solid" type="button">保存</button>
+              <button id="aiCancel" class="ai-btn-plain" type="button">取消</button>
+            </div>
+          </div>
+        </section>
+
       </div>
 
       <!-- 右侧：多平台热搜（手动切换 + 分页） -->
@@ -169,6 +224,7 @@
 <script src="assets/hot-boards.js"></script>
 <script src="assets/region-keywords.js"></script>
 <script src="assets/explore.js?v=7"></script>
+<script src="assets/ai-chat.js?v=3"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 </script>
