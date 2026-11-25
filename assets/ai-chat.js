@@ -12,20 +12,21 @@
   /* ---------- 服务商预设 ---------- */
   var PROVIDERS = [
     {
+      id: 'doubao',
+      name: '豆包',
+      base: 'https://ark.cn-beijing.volces.com/api/v3',
+      model: '',
+      modelHint: 'Model ID 或 ep- 开头的接入点 ID',
+      note: '火山方舟 · 个人开发者 50 万 token 免费。模型名去控制台「在线推理」复制，两种都行：Model ID，或自己创建的接入点 ep-xxxx。',
+      keyUrl: 'https://console.volcengine.com/ark'
+    },
+    {
       id: 'qwen',
       name: '通义千问',
       base: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
       model: 'qwen-plus',
       note: '阿里云百炼 · 每模型 100 万 token 免费（90 天）',
       keyUrl: 'https://bailian.console.aliyun.com/'
-    },
-    {
-      id: 'doubao',
-      name: '豆包',
-      base: 'https://ark.cn-beijing.volces.com/api/v3',
-      model: 'doubao-1.5-lite-32k',
-      note: '火山方舟 · 个人开发者 50 万 token 免费',
-      keyUrl: 'https://console.volcengine.com/ark'
     },
     {
       id: 'deepseek',
@@ -78,7 +79,7 @@
   var abortCtl = null;
 
   function load() {
-    var base = { provider: 'qwen', conf: {}, history: [] };
+    var base = { provider: 'doubao', conf: {}, history: [] };
     try {
       var raw = localStorage.getItem(STORE);
       if (!raw) return base;
@@ -241,7 +242,7 @@
     var r = resolved(state.provider);
     elKey.value = r.key;
     elModel.value = r.model;
-    elModel.placeholder = p.model || '模型名称';
+    elModel.placeholder = p.model || p.modelHint || '模型名称';
     elBase.value = r.base;
     elBase.placeholder = p.base || 'https://…/v1';
     elNote.textContent = p.note;
