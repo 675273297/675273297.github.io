@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的订单 · 慢岛生活</title>
+<meta name="theme-color" content="#faf7f2">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles/global.css">
+<link rel="stylesheet" href="styles/shop.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="慢岛生活 首页">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" role="img" aria-label="慢岛生活">
+        <circle cx="24" cy="21" r="9.5" stroke="var(--clay)" stroke-width="1.6" opacity="0.9"/>
+        <path d="M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6" stroke="var(--moss)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4-2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        <path d="M24 26v-6M24 24.5c-2.1 0-3.4-1.3-3.4-3.2M24 22.6c1.7 0 2.8-1 2.8-2.6" stroke="var(--moss)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">慢岛生活</span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      <a href="index.html">首页</a>
+      <a href="order.html">点单</a>
+      <a href="explore.html">探索</a>
+      <a href="about.html">关于</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap sd-page" id="app"></div>
+</main>
+
+<div class="sd-toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>&copy; <span id="year">2026</span> 慢岛生活</span>
+    <nav class="footer-links" aria-label="页脚导航">
+      <a href="order.html">点单</a>
+      <a href="orders.html">我的订单</a>
+      <a href="member.html">会员</a>
+      <a href="about.html">关于慢岛</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/shop-config.js"></script>
+<script src="assets/shop-core.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var Shop = window.MandaoShop;
+  var CFG = Shop.config || {};
+  var elApp = document.getElementById('app');
+  var elToast = document.getElementById('toast');
+  var toastTimer = null;
+
+  var view = {
+    id: new URLSearchParams(window.location.search).get('id') || '',
+    tab: 'mine',
+    filter: 'all',
+    sending: false
+  };
+
+  /* ---------- 基础 ---------- */
+
+  function toast(msg) {
+    elToast.textContent = msg;
+    elToast.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      elToast.classList.remove('is-on');
+    }, 2400);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function payCfg() {
+    return CFG.pay || {};
+  }
+
+  function memberCfg() {
+    return Shop.memberCfg();
+  }
+
+  /* ---------- 收款码区块 ---------- */
+  function payBlockHtml(amountText, opts) {
+    var o = opts || {};
+    var p = payCfg();
+    var qr = o.qr || p.qr || '';
+    var note = p.note || '';
+
+    var qrHtml = qr
+      ? '<img class="pay-qr" src="' + esc(qr) + '" alt="收款二维码">'
+      : '<div class="pay-qr-empty">收款码还没设置<br>把收款码图片放到 assets/ 下，再在 shop-config.js 里填上文件名</div>';
+
+    return '<div class="pay-block">' +
+      qrHtml +
+      '<div class="pay-amount">¥' + esc(amountText) + '</div>' +
+      (note ? '<p class="pay-caption">' + esc(note) + '</p>' : '') +
+    '</div>';
+  }
+
+  function proofFormHtml(placeholder, btnText) {
+    return '<div class="sd-field">' +
+        '<label class="sd-label" for="proof">付款单号</label>' +
+        '<input class="sd-input" id="proof" type="text" autocomplete="off" ' +
+          'maxlength="' + ((CFG.pay && CFG.pay.proofMax) || 40) + '" ' +
+          'placeholder="' + esc(placeholder) + '">' +
+        '<p class="sd-hint">在微信或支付宝的账单详情里能找到「交易单号」，最长 40 位。' +
+          '我们核对到账后会立刻开始准备。</p>' +
+      '</div>' +
+      '<button class="submit-btn" type="button" id="proofBtn" style="display:block;width:100%;margin-top:6px">' +
+        esc(btnText) + '</button>';
+  }
+
+  /* ============================================================
+     订单详情
+     ============================================================ */
+
+  function renderDetail(order) {
+    if (!order) {
+      elApp.innerHTML = '<div class="sd-empty"><span class="sd-empty-emoji">🧾</span>' +
+        '<p>没找到这个订单，可能已经被清掉了</p>' +
+        '<a class="btn" href="orders.html">看我的订单</a></div>';
+      return;
+    }
+
+    var heroExtra = '';
+    if (order.status === 'unpaid') {
+      heroExtra = '';
+    } else if (order.status === 'cancelled') {
+      heroExtra = '<div class="pick-wrap">' +
+        '<div class="pick-label">订单已取消</div>' +
+        (order.payStatus === 'refund_pending'
+          ? '<div class="pick-sub">这单已经付过款，退款请到吧台找店家处理</div>'
+          : '') +
+      '</div>';
+    } else {
+      heroExtra = '<div class="pick-wrap">' +
+        '<div class="pick-label">取餐码</div>' +
+        '<div class="pick-no">' + esc(order.pickNo) + '</div>' +
+        '<div class="pick-sub">' + esc(order.modeText) + ' · 凭此码到吧台取餐</div>' +
+      '</div>';
+    }
+
+    var html = '';
+
+    html += '<section class="order-hero">' +
+      '<h1 class="order-status">' + esc(order.statusText) + '</h1>' +
+      '<p class="order-hint">' + esc(order.statusHint) + '</p>' +
+      heroExtra +
+    '</section>';
+
+    // 待支付：收款 + 填单号
+    if (order.status === 'unpaid') {
+      html += '<section class="sd-card">' +
+        '<h2 class="sd-card-title">付款</h2>' +
+        payBlockHtml(order.totalText) +
+        proofFormHtml('粘贴或输入付款单号', '我已经付好了') +
+      '</section>';
+    }
+
+    // 待确认：已填单号
+    if (order.status === 'claimed') {
+      html += '<section class="sd-card">' +
+        '<h2 class="sd-card-title">等待店家确认</h2>' +
+        '<p class="sd-hint" style="font-size:12.5px">付款单号 <span class="proof-badge">' +
+          esc(order.payProof) + '</span> 已提交。店家核对到账后会开始准备，这一页可以随时刷新看进度。</p>' +
+      '</section>';
+    }
+
+    // 进度
+    if (order.status !== 'cancelled' && order.status !== 'unpaid' && order.status !== 'claimed') {
+      html += '<section class="sd-card">' +
+        '<h2 class="sd-card-title">制作进度</h2>' +
+        '<div class="progress-row">' +
+        order.progress.map(function (p) {
+          return '<div class="progress-item' + (p.done ? ' is-done' : '') + '">' +
+            '<span class="progress-dot"></span>' +
+            '<span class="progress-text">' + esc(p.text) + '</span>' +
+            '<div class="progress-at">' + esc(p.at) + '</div>' +
+          '</div>';
+        }).join('') +
+        '</div>' +
+      '</section>';
+    }
+
+    // 明细
+    html += '<section class="sd-card">' +
+      '<h2 class="sd-card-title">商品明细</h2>' +
+      order.items.map(function (it) {
+        return '<div class="bill-item">' +
+          '<div class="bill-thumb" aria-hidden="true">' + it.emoji + '</div>' +
+          '<div class="bill-main">' +
+            '<div class="bill-name">' + esc(it.name) + '</div>' +
+            '<div class="bill-price">×' + it.qty + ' · ¥' + it.priceText + ' / 份</div>' +
+          '</div>' +
+          '<div class="bill-amount">¥' + it.amountText + '</div>' +
+        '</div>';
+      }).join('') +
+      '<div class="bill-total"><span>合计</span><strong>¥' + order.totalText + '</strong></div>' +
+    '</section>';
+
+    // 信息
+    var payText = { unpaid: '待付款', paid: '已收款', refund_pending: '退款待处理', refunded: '已退款' }[order.payStatus] || '待付款';
+    if (order.status === 'claimed') payText = '待店家确认';
+    html += '<section class="sd-card">' +
+      '<h2 class="sd-card-title">订单信息</h2>' +
+      '<div class="kv-row"><span class="k">订单编号</span><span class="v">' + esc(order.orderNo) +
+        '<button class="copy-btn" type="button" id="copyNo">复制</button></span></div>' +
+      '<div class="kv-row"><span class="k">下单时间</span><span class="v">' + esc(order.timeText) + '</span></div>' +
+      '<div class="kv-row"><span class="k">取餐方式</span><span class="v">' + esc(order.modeText) + '</span></div>' +
+      (order.remark ? '<div class="kv-row"><span class="k">备注</span><span class="v">' + esc(order.remark) + '</span></div>' : '') +
+      '<div class="kv-row"><span class="k">收款状态</span><span class="v">' + esc(payText) + '</span></div>' +
+    '</section>';
+
+    // 底部动作
+    var actions = '<a class="mini-btn" href="orders.html">全部订单</a>';
+    if (order.canCancel) {
+      actions += '<button class="mini-btn" type="button" id="cancelBtn">取消订单</button>';
+    }
+    if (order.isFinished) {
+      actions += '<a class="mini-btn is-main" href="order.html">再来一单</a>';
+    } else if (order.status !== 'unpaid') {
+      actions += '<a class="mini-btn is-main" href="order.html">继续点单</a>';
+    }
+
+    html += '<div class="order-card-actions" style="margin-top:20px;justify-content:center">' + actions + '</div>';
+
+    elApp.innerHTML = html;
+    bindDetail(order);
+  }
+
+  function bindDetail(order) {
+    var copyBtn = document.getElementById('copyNo');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function () {
+        copyText(order.orderNo);
+      });
+    }
+
+    var cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () {
+        var res = Shop.setStatus(order._id, 'cancelled', 'owner');
+        if (!res.ok) { toast(res.msg); return; }
+        toast('订单已取消');
+        render();
+      });
+    }
+
+    var proofBtn = document.getElementById('proofBtn');
+    if (proofBtn) {
+      proofBtn.addEventListener('click', function () {
+        if (view.sending) return;
+        var input = document.getElementById('proof');
+        var val = input ? input.value : '';
+        view.sending = true;
+        proofBtn.disabled = true;
+        proofBtn.textContent = '提交中…';
+
+        var res = Shop.claimPaid(order._id, val);
+        view.sending = false;
+
+        if (!res.ok) {
+          proofBtn.disabled = false;
+          proofBtn.textContent = '我已经付好了';
+          toast(res.msg);
+          return;
+        }
+        toast('已提交，等店家确认');
+        render();
+      });
+    }
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast('已复制');
+      }).catch(function () {
+        toast('复制失败，请手动选择');
+      });
+      return;
+    }
+    toast('订单号：' + text);
+  }
+
+  /* ============================================================
+     订单列表
+     ============================================================ */
+
+  function renderList() {
+    var badge = pendingBadge();
+
+    var html = '<div class="sd-tabs">' +
+      '<button class="sd-tab' + (view.tab === 'mine' ? ' is-on' : '') + '" type="button" data-tab="mine">我的订单</button>' +
+      '<button class="sd-tab' + (view.tab === 'admin' ? ' is-on' : '') + '" type="button" data-tab="admin">店家' +
+        (badge > 0 ? '<span class="sd-tab-badge">' + badge + '</span>' : '') +
+      '</button>' +
+    '</div>';
+
+    // 单人模式说明
+    if (Shop.backend !== 'cloudbase') {
+      html += '<p class="sd-mode-tip"><span>这台设备上的订单都列在这里。' +
+        '顾客填了付款单号后，会出现在「店家」里等你确认。</span></p>';
+    }
+
+    if (view.tab === 'mine') {
+      html += '<div class="menu-cats" style="position:static;border-bottom:0;padding-top:0">' +
+        [['all', '全部'], ['active', '进行中'], ['done', '已完成']].map(function (f) {
+          return '<button class="cat-chip' + (view.filter === f[0] ? ' is-on' : '') +
+            '" type="button" data-filter="' + f[0] + '">' + f[1] + '</button>';
+        }).join('') +
+      '</div>';
+
+      var orders = Shop.listOrders(view.filter);
+      if (!orders.length) {
+        html += '<div class="sd-empty"><span class="sd-empty-emoji">🧾</span>' +
+          '<p>' + (view.filter === 'all' ? '还没有订单，去点一份甜的？' : '这里空空的') + '</p>' +
+          '<a class="btn" href="order.html">去点单</a></div>';
+      } else {
+        html += orders.map(orderCardHtml).join('');
+      }
+    } else {
+      html += adminHtml();
+    }
+
+    elApp.innerHTML = html;
+    bindList();
+  }
+
+  function pendingBadge() {
+    var m = Shop.getMember();
+    var n = 0;
+    Shop.listOrders('active').forEach(function (o) {
+      if (o.waitingConfirm) n += 1;
+    });
+    if (m.status === 'pending') n += 1;
+    return n;
+  }
+
+  function orderCardHtml(o) {
+    var actions = '';
+    if (o.status === 'unpaid') {
+      actions += '<button class="mini-btn is-clay" type="button" data-open="' + o._id + '">去付款</button>';
+    }
+    actions += '<button class="mini-btn' + (o.status === 'unpaid' ? '' : ' is-main') +
+      '" type="button" data-open="' + o._id + '">' +
+      (o.status === 'unpaid' ? '订单详情' : (o.status === 'ready' ? '看取餐码' : '详情')) + '</button>';
+
+    return '<article class="order-card">' +
+      '<div class="order-card-top">' +
+        '<span class="order-card-no">' + esc(o.orderNo) + '</span>' +
+        '<span class="order-state st-' + o.status + '">' + esc(o.statusText) + '</span>' +
+        (o.status === 'ready' ? '<span class="order-state st-pick">取餐码 ' + esc(o.pickNo) + '</span>' : '') +
+      '</div>' +
+      '<div class="order-card-items">' + esc(o.itemsSummary) + '</div>' +
+      '<div class="order-card-foot">' +
+        '<span class="order-card-total">¥' + o.totalText + '</span>' +
+        '<span class="order-card-time">' + esc(o.fromNowText) + ' · ' + esc(o.modeText) + '</span>' +
+        '<span class="order-card-actions">' + actions + '</span>' +
+      '</div>' +
+    '</article>';
+  }
+
+  /* ============================================================
+     店家确认台
+     ============================================================ */
+
+  function adminHtml() {
+    if (!Shop.isAdminUnlocked()) {
+      return '<div class="admin-gate">' +
+        '<h3>店家确认台</h3>' +
+        '<p>顾客付款后填了单号，订单会到这里等你核对。<br>输入口令进入。</p>' +
+        '<div class="sd-field">' +
+          '<input class="sd-input" id="pin" type="password" inputmode="numeric" ' +
+            'autocomplete="off" placeholder="店家口令" style="text-align:center;letter-spacing:0.3em">' +
+        '</div>' +
+        '<button class="submit-btn" type="button" id="unlockBtn" style="width:100%;margin-top:14px">进入</button>' +
+      '</div>';
+    }
+
+    var stats = Shop.todayStats();
+    var html = '';
+
+    html += '<div class="admin-stats">' +
+      '<div class="stat-box"><div class="stat-label">今日营收</div><div class="stat-num"><span class="cny">¥</span>' + stats.amountText + '</div></div>' +
+      '<div class="stat-box"><div class="stat-label">今日订单</div><div class="stat-num">' + stats.count + '</div></div>' +
+      '<div class="stat-box"><div class="stat-label">待确认收款</div><div class="stat-num">' + stats.waitingConfirm + '</div></div>' +
+      '<div class="stat-box"><div class="stat-label">待接单</div><div class="stat-num">' + stats.waitingAccept + '</div></div>' +
+    '</div>';
+
+    // 待确认收款
+    var claimed = Shop.listOrders('active').filter(function (o) { return o.status === 'claimed'; });
+    html += '<h2 class="sd-card-title" style="border:0;margin-bottom:8px">待确认收款' +
+      (claimed.length ? '（' + claimed.length + '）' : '') + '</h2>';
+    if (!claimed.length) {
+      html += '<p class="sd-hint" style="margin-bottom:24px">没有待确认的订单。</p>';
+    } else {
+      html += claimed.map(function (o) {
+        return '<article class="order-card">' +
+          '<div class="order-card-top">' +
+            '<span class="order-card-no">' + esc(o.orderNo) + '</span>' +
+            '<span class="order-state st-claimed">' + esc(o.statusText) + '</span>' +
+            '<span class="order-card-time">' + esc(o.fromNowText) + '</span>' +
+          '</div>' +
+          '<div class="order-card-items">' + esc(o.itemsSummary) +
+            ' · <strong>¥' + o.totalText + '</strong></div>' +
+          '<div class="kv-row"><span class="k">付款单号</span>' +
+            '<span class="v"><span class="proof-badge">' + esc(o.payProof) + '</span></span></div>' +
+          '<div class="order-card-foot">' +
+            '<span class="order-card-actions">' +
+              '<button class="mini-btn" type="button" data-admin="reject" data-id="' + o._id + '">没收到，取消</button>' +
+              '<button class="mini-btn is-main" type="button" data-admin="confirm" data-id="' + o._id + '">确认收款，开始做</button>' +
+            '</span>' +
+          '</div>' +
+        '</article>';
+      }).join('');
+    }
+
+    // 制作流水线
+    var flow = [
+      { status: 'pending', label: '待接单', next: 'accepted', btn: '接单' },
+      { status: 'accepted', label: '制作中', next: 'ready', btn: '做好了' },
+      { status: 'ready', label: '待取餐', next: 'done', btn: '已取餐' }
+    ];
+
+    flow.forEach(function (step) {
+      var list = Shop.listOrders('active').filter(function (o) { return o.status === step.status; });
+      if (!list.length) return;
+      html += '<h2 class="sd-card-title" style="border:0;margin:28px 0 8px">' + step.label +
+        '（' + list.length + '）</h2>';
+      html += list.map(function (o) {
+        return '<article class="order-card">' +
+          '<div class="order-card-top">' +
+            '<span class="order-card-no">' + esc(o.orderNo) + '</span>' +
+            '<span class="order-state st-pick">取餐码 ' + esc(o.pickNo) + '</span>' +
+            '<span class="order-card-time">' + esc(o.fromNowText) + '</span>' +
+          '</div>' +
+          '<div class="order-card-items">' + esc(o.itemsSummary) + '</div>' +
+          (o.remark ? '<div class="kv-row"><span class="k">备注</span><span class="v">' + esc(o.remark) + '</span></div>' : '') +
+          '<div class="kv-row"><span class="k">取餐方式</span><span class="v">' + esc(o.modeText) + '</span></div>' +
+          '<div class="order-card-foot">' +
+            '<span class="order-card-total">¥' + o.totalText + '</span>' +
+            '<span class="order-card-actions">' +
+              '<button class="mini-btn is-main" type="button" data-admin="' + step.next +
+                '" data-id="' + o._id + '">' + step.btn + '</button>' +
+            '</span>' +
+          '</div>' +
+        '</article>';
+      }).join('');
+    });
+
+    // 会员申请
+    var m = Shop.getMember();
+    if (m.status === 'pending') {
+      html += '<h2 class="sd-card-title" style="border:0;margin:28px 0 8px">会员开通申请</h2>' +
+        '<article class="order-card">' +
+          '<div class="order-card-top">' +
+            '<span class="order-card-no">' + esc(m.phone) + '</span>' +
+            '<span class="order-state st-claimed">待确认</span>' +
+          '</div>' +
+          '<div class="order-card-items">年费 ¥' + memberCfg().price + ' · ' + memberCfg().days + ' 天</div>' +
+          '<div class="kv-row"><span class="k">付款单号</span>' +
+            '<span class="v"><span class="proof-badge">' + esc(m.proof) + '</span></span></div>' +
+          '<div class="order-card-foot">' +
+            '<span class="order-card-actions">' +
+              '<button class="mini-btn" type="button" data-admin="memberReject">驳回</button>' +
+              '<button class="mini-btn is-main" type="button" data-admin="memberOk">已到账，开通会员</button>' +
+            '</span>' +
+          '</div>' +
+        '</article>';
+    }
+
+    html += '<p class="sd-hint" style="margin-top:30px;text-align:center">' +
+      '<button class="admin-logout" type="button" id="lockBtn">退出店家模式</button></p>';
+
+    return html;
+  }
+
+  /* ============================================================
+     绑定与路由
+     ============================================================ */
+
+  function bindList() {
+    elApp.querySelectorAll('[data-tab]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        view.tab = btn.getAttribute('data-tab');
+        renderList();
+      });
+    });
+
+    elApp.querySelectorAll('[data-filter]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        view.filter = btn.getAttribute('data-filter');
+        renderList();
+      });
+    });
+
+    elApp.querySelectorAll('[data-open]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        view.id = btn.getAttribute('data-open');
+        history.replaceState(null, '', 'orders.html?id=' + encodeURIComponent(view.id));
+        render();
+      });
+    });
+
+    var unlockBtn = document.getElementById('unlockBtn');
+    if (unlockBtn) {
+      var pin = document.getElementById('pin');
+      function tryUnlock() {
+        var res = Shop.unlockAdmin(pin ? pin.value : '');
+        if (!res.ok) {
+          toast(res.msg);
+          if (pin) { pin.value = ''; pin.focus(); }
+          return;
+        }
+        renderList();
+      }
+      unlockBtn.addEventListener('click', tryUnlock);
+      if (pin) {
+        pin.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') tryUnlock();
+        });
+        pin.focus();
+      }
+    }
+
+    elApp.querySelectorAll('[data-admin]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.getAttribute('data-admin');
+        var id = btn.getAttribute('data-id');
+        var res;
+
+        if (act === 'confirm') {
+          res = Shop.confirmPayment(id);
+        } else if (act === 'reject') {
+          res = Shop.setStatus(id, 'cancelled', 'admin');
+        } else if (act === 'accepted' || act === 'ready' || act === 'done') {
+          res = Shop.setStatus(id, act, 'admin');
+        } else if (act === 'memberOk') {
+          res = Shop.activateMember();
+        } else if (act === 'memberReject') {
+          res = Shop.rejectMember();
+        }
+
+        if (res && !res.ok) { toast(res.msg); return; }
+        toast('已更新');
+        renderList();
+      });
+    });
+
+    var lockBtn = document.getElementById('lockBtn');
+    if (lockBtn) {
+      lockBtn.addEventListener('click', function () {
+        Shop.lockAdmin();
+        toast('已退出店家模式');
+        renderList();
+      });
+    }
+  }
+
+  function render() {
+    if (view.id) {
+      renderDetail(Shop.getOrder(view.id));
+    } else {
+      renderList();
+    }
+  }
+
+  /* ---------- 启动 ---------- */
+  document.getElementById('year').textContent = new Date().getFullYear();
+  render();
+})();
+</script>
+</body>
+</html>
