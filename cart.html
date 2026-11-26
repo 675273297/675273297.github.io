@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>确认订单 · 慢岛生活</title>
+<meta name="theme-color" content="#faf7f2">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles/global.css">
+<link rel="stylesheet" href="styles/shop.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="慢岛生活 首页">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" role="img" aria-label="慢岛生活">
+        <circle cx="24" cy="21" r="9.5" stroke="var(--clay)" stroke-width="1.6" opacity="0.9"/>
+        <path d="M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6" stroke="var(--moss)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4-2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        <path d="M24 26v-6M24 24.5c-2.1 0-3.4-1.3-3.4-3.2M24 22.6c1.7 0 2.8-1 2.8-2.6" stroke="var(--moss)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">慢岛生活</span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      <a href="index.html">首页</a>
+      <a href="order.html">点单</a>
+      <a href="explore.html">探索</a>
+      <a href="about.html">关于</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap sd-page" id="app"></div>
+</main>
+
+<div class="sd-toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>&copy; <span id="year">2026</span> 慢岛生活</span>
+    <nav class="footer-links" aria-label="页脚导航">
+      <a href="order.html">点单</a>
+      <a href="orders.html">我的订单</a>
+      <a href="member.html">会员</a>
+      <a href="about.html">关于慢岛</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/shop-config.js"></script>
+<script src="assets/shop-core.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var Shop = window.MandaoShop;
+  var elApp = document.getElementById('app');
+  var elToast = document.getElementById('toast');
+  var toastTimer = null;
+
+  var state = {
+    mode: 'pickup',
+    tableNo: '',
+    remark: '',
+    submitting: false
+  };
+
+  function toast(msg) {
+    elToast.textContent = msg;
+    elToast.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      elToast.classList.remove('is-on');
+    }, 2200);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* ---------- 空购物车 ---------- */
+  function renderEmpty() {
+    elApp.innerHTML =
+      '<div class="sd-empty">' +
+        '<span class="sd-empty-emoji">🍰</span>' +
+        '<p>购物车还是空的</p>' +
+        '<a class="btn" href="order.html">去点单</a>' +
+      '</div>';
+  }
+
+  /* ---------- 主渲染 ---------- */
+  function render() {
+    var sum = Shop.cartSummary();
+    if (!sum.count) {
+      renderEmpty();
+      return;
+    }
+
+    var itemsHtml = sum.items.map(function (it) {
+      return '<div class="bill-item">' +
+        '<div class="bill-thumb" aria-hidden="true">' + it.emoji + '</div>' +
+        '<div class="bill-main">' +
+          '<div class="bill-name">' + esc(it.name) + '</div>' +
+          '<div class="bill-price">¥' + it.priceText + ' / 份</div>' +
+        '</div>' +
+        '<div class="bill-right">' +
+          '<div class="bill-amount">¥' + it.amountText + '</div>' +
+          '<div class="stepper">' +
+            '<button class="step-btn" type="button" data-act="minus" data-id="' + it.goodsId + '" aria-label="减一份">−</button>' +
+            '<span class="step-num">' + it.qty + '</span>' +
+            '<button class="step-btn is-plus" type="button" data-act="plus" data-id="' + it.goodsId + '" aria-label="加一份">+</button>' +
+          '</div>' +
+        '</div>' +
+        '<button class="bill-del" type="button" data-act="remove" data-id="' + it.goodsId + '">移除</button>' +
+      '</div>';
+    }).join('');
+
+    elApp.innerHTML =
+      '<section class="sd-card">' +
+        '<h2 class="sd-card-title">已选甜点</h2>' +
+        itemsHtml +
+        '<div class="bill-total"><span>共 ' + sum.count + ' 件</span><strong>¥' + sum.totalText + '</strong></div>' +
+      '</section>' +
+
+      '<section class="sd-card">' +
+        '<h2 class="sd-card-title">取餐方式</h2>' +
+        '<div class="mode-row">' +
+          '<div class="mode-opt' + (state.mode === 'pickup' ? ' is-on' : '') + '" data-mode="pickup" role="radio" tabindex="0" aria-checked="' + (state.mode === 'pickup') + '">' +
+            '<span class="mode-dot" aria-hidden="true"></span>' +
+            '<span class="mode-text">' +
+              '<span class="mode-name">到店自取</span>' +
+              '<span class="mode-desc">做好后凭取餐码到吧台取</span>' +
+            '</span>' +
+          '</div>' +
+          '<div class="mode-opt' + (state.mode === 'dinein' ? ' is-on' : '') + '" data-mode="dinein" role="radio" tabindex="0" aria-checked="' + (state.mode === 'dinein') + '">' +
+            '<span class="mode-dot" aria-hidden="true"></span>' +
+            '<span class="mode-text">' +
+              '<span class="mode-name">堂食</span>' +
+              '<span class="mode-desc">做好了送到你的桌前</span>' +
+            '</span>' +
+          '</div>' +
+        '</div>' +
+
+        (state.mode === 'dinein'
+          ? '<div class="sd-field" style="margin-top:18px">' +
+              '<label class="sd-label" for="tableNo">桌号</label>' +
+              '<input class="sd-input" id="tableNo" type="text" maxlength="10" ' +
+                'placeholder="例如 A3" value="' + esc(state.tableNo) + '">' +
+              '<p class="sd-hint">桌上没有桌号牌的话，写个你方便认的位置也行。</p>' +
+            '</div>'
+          : '') +
+      '</section>' +
+
+      '<section class="sd-card">' +
+        '<h2 class="sd-card-title">备注给店家</h2>' +
+        '<div class="sd-field">' +
+          '<textarea class="sd-textarea" id="remark" maxlength="80" ' +
+            'placeholder="少糖 / 不要餐具 / 分开装…">' + esc(state.remark) + '</textarea>' +
+          '<p class="sd-hint">选填，最多 80 字。</p>' +
+        '</div>' +
+      '</section>' +
+
+      '<div class="submit-bar">' +
+        '<div class="submit-left">' +
+          '<div class="submit-total">合计 <strong>¥' + sum.totalText + '</strong></div>' +
+          '<div class="submit-tip">共 ' + sum.count + ' 件 · 提交后按提示付款</div>' +
+        '</div>' +
+        '<button class="submit-btn" type="button" id="submitBtn">提交订单</button>' +
+      '</div>';
+
+    bindEvents();
+  }
+
+  /* ---------- 事件 ---------- */
+  function bindEvents() {
+    elApp.querySelectorAll('[data-act]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-id');
+        var act = btn.getAttribute('data-act');
+
+        if (act === 'remove') {
+          Shop.cartRemove(id);
+          render();
+          return;
+        }
+        var delta = act === 'plus' ? 1 : -1;
+        var res = Shop.cartAdd(id, delta);
+        if (!res.ok) toast(res.msg);
+        render();
+      });
+    });
+
+    elApp.querySelectorAll('[data-mode]').forEach(function (opt) {
+      function choose() {
+        state.mode = opt.getAttribute('data-mode');
+        render();
+      }
+      opt.addEventListener('click', choose);
+      opt.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          choose();
+        }
+      });
+    });
+
+    var tableNo = document.getElementById('tableNo');
+    if (tableNo) {
+      tableNo.addEventListener('input', function () {
+        state.tableNo = tableNo.value;
+      });
+    }
+
+    var remark = document.getElementById('remark');
+    if (remark) {
+      remark.addEventListener('input', function () {
+        state.remark = remark.value;
+      });
+    }
+
+    var submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', onSubmit);
+    }
+  }
+
+  /* ---------- 提交 ---------- */
+  function onSubmit() {
+    if (state.submitting) return;
+
+    if (state.mode === 'dinein' && !state.tableNo.trim()) {
+      toast('请先填写桌号');
+      var t = document.getElementById('tableNo');
+      if (t) t.focus();
+      return;
+    }
+
+    state.submitting = true;
+    var btn = document.getElementById('submitBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '提交中…';
+    }
+
+    var res = Shop.createOrder({
+      mode: state.mode,
+      tableNo: state.tableNo,
+      remark: state.remark
+    });
+
+    if (!res.ok) {
+      state.submitting = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '提交订单';
+      }
+      toast(res.msg);
+      return;
+    }
+
+    window.location.href = 'orders.html?id=' + encodeURIComponent(res.order._id);
+  }
+
+  /* ---------- 启动 ---------- */
+  document.getElementById('year').textContent = new Date().getFullYear();
+  render();
+})();
+</script>
+</body>
+</html>
