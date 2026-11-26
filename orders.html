@@ -393,6 +393,9 @@
       '<div class="stat-box"><div class="stat-label">待接单</div><div class="stat-num">' + stats.waitingAccept + '</div></div>' +
     '</div>';
 
+    html += '<p style="margin:0 0 22px;text-align:right">' +
+      '<a class="mini-btn" href="menu-admin.html">菜单管理 →</a></p>';
+
     // 待确认收款
     var claimed = Shop.listOrders('active').filter(function (o) { return o.status === 'claimed'; });
     html += '<h2 class="sd-card-title" style="border:0;margin-bottom:8px">待确认收款' +
