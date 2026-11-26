@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>点单 · 慢岛生活</title>
+<meta name="description" content="慢岛 · 现点现做，做好后凭取餐码到吧台取。">
+<meta name="theme-color" content="#faf7f2">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles/global.css">
+<link rel="stylesheet" href="styles/shop.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="慢岛生活 首页">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" role="img" aria-label="慢岛生活">
+        <circle cx="24" cy="21" r="9.5" stroke="var(--clay)" stroke-width="1.6" opacity="0.9"/>
+        <path d="M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6" stroke="var(--moss)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4-2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        <path d="M24 26v-6M24 24.5c-2.1 0-3.4-1.3-3.4-3.2M24 22.6c1.7 0 2.8-1 2.8-2.6" stroke="var(--moss)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">慢岛生活</span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      <a href="index.html">首页</a>
+      <a href="order.html" aria-current="page">点单</a>
+      <a href="explore.html">探索</a>
+      <a href="about.html">关于</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap sd-page">
+
+    <p class="sd-mode-tip" id="modeTip" hidden></p>
+
+    <section class="shop-hero">
+      <div class="shop-hero-top">
+        <h1 id="shopName">慢岛</h1>
+        <span class="shop-badge">营业中</span>
+      </div>
+      <p class="shop-hero-slogan" id="shopSlogan"></p>
+      <p class="shop-hero-meta" id="shopMeta"></p>
+      <p class="shop-hero-notice" id="shopNotice" hidden></p>
+    </section>
+
+    <div class="menu-cats" id="cats" role="tablist" aria-label="菜单分类"></div>
+
+    <div id="menu"></div>
+
+  </div>
+</main>
+
+<!-- 吸底购物车条 -->
+<div class="cartbar" id="cartbar">
+  <div class="cartbar-left">
+    <span class="cartbar-icon">🛒<span class="cartbar-badge" id="cartCount">0</span></span>
+    <span class="cartbar-total"><span class="cny">¥</span><span id="cartTotal">0</span></span>
+  </div>
+  <button class="cartbar-go" type="button" id="goCart">去结算</button>
+</div>
+
+<div class="sd-toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>&copy; <span id="year">2026</span> 慢岛生活</span>
+    <nav class="footer-links" aria-label="页脚导航">
+      <a href="order.html">点单</a>
+      <a href="orders.html">我的订单</a>
+      <a href="member.html">会员</a>
+      <a href="about.html">关于慢岛</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/shop-config.js"></script>
+<script src="assets/shop-core.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var Shop = window.MandaoShop;
+  var activeCat = 'all';
+
+  var elMenu = document.getElementById('menu');
+  var elCats = document.getElementById('cats');
+  var elCartbar = document.getElementById('cartbar');
+  var elCount = document.getElementById('cartCount');
+  var elTotal = document.getElementById('cartTotal');
+  var elToast = document.getElementById('toast');
+  var toastTimer = null;
+
+  /* ---------- 提示 ---------- */
+  function toast(msg) {
+    elToast.textContent = msg;
+    elToast.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      elToast.classList.remove('is-on');
+    }, 2200);
+  }
+
+  /* ---------- 店铺头 ---------- */
+  function renderShop() {
+    var s = Shop.getShop();
+    document.getElementById('shopName').textContent = s.name;
+
+    var slogan = document.getElementById('shopSlogan');
+    slogan.textContent = s.slogan;
+    slogan.hidden = !s.slogan;
+
+    var meta = [];
+    if (s.openTime) meta.push(s.openTime);
+    if (s.address) meta.push(s.address);
+    document.getElementById('shopMeta').textContent = meta.join(' · ');
+    document.getElementById('shopMeta').hidden = meta.length === 0;
+
+    var notice = document.getElementById('shopNotice');
+    if (s.notice) {
+      notice.textContent = s.notice;
+      notice.hidden = false;
+    }
+  }
+
+  /* ---------- 单机模式说明 ---------- */
+  function renderModeTip() {
+    var tip = document.getElementById('modeTip');
+    if (Shop.backend === 'cloudbase') return;
+    tip.innerHTML = '<span>本页订单保存在<strong>这台设备</strong>的浏览器里，' +
+                    '适合店里放一台平板当点单机：顾客点、你在「我的订单 → 店家」里确认收款。' +
+                    '要让顾客用自己手机下单并同步到店里，需要先接上云端。' +
+                    '<a href="orders.html">去订单页</a></span>';
+    tip.hidden = false;
+  }
+
+  /* ---------- 分类 ---------- */
+  function renderCats() {
+    var cats = [{ _id: 'all', name: '全部' }].concat(Shop.getCategories());
+    elCats.innerHTML = cats.map(function (c) {
+      return '<button class="cat-chip' + (c._id === activeCat ? ' is-on' : '') +
+             '" type="button" role="tab" data-cat="' + c._id + '"' +
+             ' aria-selected="' + (c._id === activeCat) + '">' + esc(c.name) + '</button>';
+    }).join('');
+  }
+
+  /* ---------- 菜单 ---------- */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function stepperHtml(id, qty) {
+    if (qty > 0) {
+      return '<div class="stepper">' +
+        '<button class="step-btn" type="button" data-act="minus" data-id="' + id + '" aria-label="减一份">−</button>' +
+        '<span class="step-num">' + qty + '</span>' +
+        '<button class="step-btn is-plus" type="button" data-act="plus" data-id="' + id + '" aria-label="加一份">+</button>' +
+      '</div>';
+    }
+    return '<div class="stepper">' +
+      '<button class="step-btn is-plus" type="button" data-act="plus" data-id="' + id + '" aria-label="加入购物车">+</button>' +
+    '</div>';
+  }
+
+  function cardHtml(g, qty) {
+    var soldOut = g.soldOut;
+    return '<article class="menu-card" data-card="' + g._id + '">' +
+      '<div class="menu-thumb" aria-hidden="true">' + g.emoji + '</div>' +
+      '<div class="menu-main">' +
+        '<div class="menu-name">' + esc(g.name) +
+          (g.tag ? '<span class="menu-tag">' + esc(g.tag) + '</span>' : '') +
+        '</div>' +
+        '<p class="menu-desc">' + esc(g.desc) + '</p>' +
+        '<div class="menu-foot">' +
+          '<div class="menu-price"><span class="cny">¥</span><span class="num">' + g.priceText + '</span>' +
+            (g.soldText ? '<span class="menu-sold">' + esc(g.soldText) + '</span>' : '') +
+          '</div>' +
+          (soldOut ? '<span class="menu-soldout">已售罄</span>' : stepperHtml(g._id, qty)) +
+        '</div>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function renderMenu() {
+    var goods = Shop.getGoods();
+    var cats = Shop.getCategories();
+    var map = Shop.cartMap();
+
+    if (activeCat === 'all') {
+      var html = '';
+      var any = false;
+      cats.forEach(function (c) {
+        var group = goods.filter(function (g) { return g.categoryId === c._id; });
+        if (!group.length) return;
+        any = true;
+        html += '<h2 class="menu-group-title">' + esc(c.name) + '</h2>' +
+                '<div class="menu-list">' +
+                group.map(function (g) { return cardHtml(g, map[g._id] || 0); }).join('') +
+                '</div>';
+      });
+      elMenu.innerHTML = any ? html : emptyHtml('菜单还没有上架');
+    } else {
+      var list = goods.filter(function (g) { return g.categoryId === activeCat; });
+      elMenu.innerHTML = list.length
+        ? '<div class="menu-list">' + list.map(function (g) {
+            return cardHtml(g, map[g._id] || 0);
+          }).join('') + '</div>'
+        : emptyHtml('这个分类暂时没有在售的甜点');
+    }
+  }
+
+  function emptyHtml(msg) {
+    return '<div class="sd-empty"><span class="sd-empty-emoji">🍽</span><p>' + esc(msg) + '</p></div>';
+  }
+
+  /** 只刷新某一张卡片的步进器，避免整页重绘 */
+  function refreshCard(goodsId) {
+    var card = elMenu.querySelector('[data-card="' + goodsId + '"]');
+    if (!card) return;
+    var goods = Shop.findGoods(goodsId);
+    if (!goods) return;
+    var map = Shop.cartMap();
+    var qty = map[goodsId] || 0;
+    var foot = card.querySelector('.menu-foot');
+    if (!foot) return;
+    var old = foot.querySelector('.stepper');
+    var sold = foot.querySelector('.menu-soldout');
+    if (sold) return;
+    if (old) {
+      old.outerHTML = stepperHtml(goodsId, qty);
+    } else {
+      foot.insertAdjacentHTML('beforeend', stepperHtml(goodsId, qty));
+    }
+  }
+
+  /* ---------- 购物车条 ---------- */
+  function renderCartbar() {
+    var sum = Shop.cartSummary();
+    elCount.textContent = sum.count;
+    elTotal.textContent = sum.totalText;
+    elCartbar.classList.toggle('is-on', sum.count > 0);
+  }
+
+  /* ---------- 事件 ---------- */
+  elMenu.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-id');
+    var delta = btn.getAttribute('data-act') === 'plus' ? 1 : -1;
+
+    var res = Shop.cartAdd(id, delta);
+    if (!res.ok) {
+      toast(res.msg);
+      return;
+    }
+    refreshCard(id);
+    renderCartbar();
+  });
+
+  elCats.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    var next = btn.getAttribute('data-cat');
+    if (next === activeCat) return;
+    activeCat = next;
+    renderCats();
+    renderMenu();
+  });
+
+  document.getElementById('goCart').addEventListener('click', function () {
+    if (Shop.cartSummary().count === 0) {
+      toast('购物车还是空的');
+      return;
+    }
+    window.location.href = 'cart.html';
+  });
+
+  /* ---------- 启动 ---------- */
+  document.getElementById('year').textContent = new Date().getFullYear();
+  renderShop();
+  renderModeTip();
+  renderCats();
+  renderMenu();
+  renderCartbar();
+
+  // 从结算页返回时，购物车可能已清空
+  window.addEventListener('pageshow', function () {
+    renderMenu();
+    renderCartbar();
+  });
+})();
+</script>
+</body>
+</html>
