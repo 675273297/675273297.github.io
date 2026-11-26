@@ -4,11 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>会员 · 慢岛生活</title>
-<meta name="description" content="慢岛生活是会员邀请制的小社区。">
+<meta name="description" content="慢岛生活会员，年费一百元。加入岛上，把日子过慢一点。">
 <meta name="theme-color" content="#faf7f2">
 <link rel="canonical" href="https://mandao.life/member.html">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles/global.css">
+<link rel="stylesheet" href="styles/shop.css">
 </head>
 <body>
 
@@ -18,7 +19,7 @@
       <svg class="brand-mark" viewBox="0 0 48 48" fill="none" role="img" aria-label="慢岛生活">
         <circle cx="24" cy="21" r="9.5" stroke="var(--clay)" stroke-width="1.6" opacity="0.9"/>
         <path d="M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6" stroke="var(--moss)" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4 2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4-2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
         <path d="M24 26v-6M24 24.5c-2.1 0-3.4-1.3-3.4-3.2M24 22.6c1.7 0 2.8-1 2.8-2.6" stroke="var(--moss)" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
       <span class="brand-name">慢岛生活</span>
@@ -26,6 +27,7 @@
 
     <nav class="site-nav" aria-label="主导航">
       <a href="index.html">首页</a>
+      <a href="order.html">点单</a>
       <a href="explore.html">探索</a>
       <a href="about.html">关于</a>
       <a href="member.html" aria-current="page">会员</a>
@@ -34,44 +36,322 @@
 </header>
 
 <main>
-  <section class="section">
-    <div class="wrap">
-      <div class="gate">
-        <svg class="gate-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-          <rect x="11" y="21" width="26" height="19" rx="4" stroke="currentColor" stroke-width="1.9"/>
-          <path d="M17 21v-5a7 7 0 0 1 14 0v5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
-          <circle cx="24" cy="30" r="2.2" fill="currentColor"/>
-        </svg>
-
-        <h1>岛上见</h1>
-
-        <p>
-          慢岛生活是邀请制的小社区。<br>
-          如果你收到了一份邀请，欢迎回家。
-        </p>
-
-        <div class="gate-note">
-          登录与邀请码验证功能正在开发中。<br>
-          首批会员开放时，会通过邀请邮件通知你。
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="wrap sd-page" id="app"></div>
 </main>
+
+<div class="sd-toast" id="toast" role="status" aria-live="polite"></div>
 
 <footer class="site-footer">
   <div class="wrap">
     <span>&copy; <span id="year">2026</span> 慢岛生活</span>
     <nav class="footer-links" aria-label="页脚导航">
-      <a href="index.html">首页</a>
-      <a href="explore.html">探索</a>
+      <a href="order.html">点单</a>
+      <a href="orders.html">我的订单</a>
+      <a href="member.html">会员</a>
       <a href="about.html">关于慢岛</a>
     </nav>
   </div>
 </footer>
 
+<script src="assets/shop-config.js"></script>
+<script src="assets/shop-core.js"></script>
 <script>
+(function () {
+  'use strict';
+
+  var Shop = window.MandaoShop;
+  var CFG = Shop.config || {};
+  var elApp = document.getElementById('app');
+  var elToast = document.getElementById('toast');
+  var toastTimer = null;
+  var sending = false;
+
+  function toast(msg) {
+    elToast.textContent = msg;
+    elToast.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      elToast.classList.remove('is-on');
+    }, 2400);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* ---------- 会员卡 ---------- */
+
+  function cardHtml(m) {
+    var isActive = m.status === 'active';
+    var cls = isActive ? ''
+      : (m.status === 'pending' ? ' is-pending'
+        : (m.status === 'expired' ? ' is-expired' : ' is-none'));
+
+    var label = isActive ? 'Slow Island · Member'
+      : (m.status === 'pending' ? 'Waiting for confirmation'
+        : (m.status === 'expired' ? 'Membership expired' : 'Not a member yet'));
+
+    var name = m.name || (Shop.getSession() ? Shop.getSession().name : '岛民');
+
+    var meta = '';
+    if (isActive) {
+      meta = '<div class="member-card-meta">' +
+        '<div><span>开通于</span><strong>' + fmtDate(m.activatedAt) + '</strong></div>' +
+        '<div><span>有效期至</span><strong>' + esc(m.expiresAtText) + '</strong></div>' +
+        '<div><span>还可以</span><strong>' + m.daysLeft + ' 天</strong></div>' +
+      '</div>';
+    } else if (m.status === 'pending') {
+      meta = '<div class="member-card-meta">' +
+        '<div><span>提交于</span><strong>' + fmtDate(m.appliedAt) + '</strong></div>' +
+        '<div><span>状态</span><strong>等待店家确认</strong></div>' +
+      '</div>';
+    } else if (m.status === 'expired') {
+      meta = '<div class="member-card-meta">' +
+        '<div><span>已于</span><strong>' + esc(m.expiresAtText) + '</strong></div>' +
+        '<div><span>状态</span><strong>已过期</strong></div>' +
+      '</div>';
+    }
+
+    return '<div class="member-card' + cls + '">' +
+      '<div class="member-card-label">' + esc(label) + '</div>' +
+      '<h2 class="member-card-name">' + esc(name) + '</h2>' +
+      '<div class="member-card-slogan">慢岛生活 · 一座不赶时间的岛</div>' +
+      meta +
+    '</div>';
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return '—';
+    var d = new Date(ts);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+  /* ---------- 权益 ---------- */
+
+  function perksHtml() {
+    var perks = Shop.memberCfg().perks || [];
+    if (!perks.length) return '';
+    return '<section class="sd-card">' +
+      '<h2 class="sd-card-title">会员能做什么</h2>' +
+      '<ul class="perk-list">' +
+      perks.map(function (p) {
+        return '<li class="perk-item">' +
+          '<span class="perk-mark" aria-hidden="true">✦</span>' +
+          '<span><strong>' + esc(p.title) + '</strong>　' + esc(p.desc) + '</span>' +
+        '</li>';
+      }).join('') +
+      '</ul>' +
+    '</section>';
+  }
+
+  /* ---------- 登录 ---------- */
+
+  function renderLogin() {
+    elApp.innerHTML =
+      '<div class="gate">' +
+        '<svg class="gate-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">' +
+          '<rect x="11" y="21" width="26" height="19" rx="4" stroke="currentColor" stroke-width="1.9"/>' +
+          '<path d="M17 21v-5a7 7 0 0 1 14 0v5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>' +
+          '<circle cx="24" cy="30" r="2.2" fill="currentColor"/>' +
+        '</svg>' +
+        '<h1>岛上见</h1>' +
+        '<p>慢岛生活是会员邀请制的小社区。<br>先留个联系方式，把名字写在会员卡上。</p>' +
+        '<div class="sd-field" style="text-align:left">' +
+          '<label class="sd-label" for="phone">手机号</label>' +
+          '<input class="sd-input" id="phone" type="tel" inputmode="numeric" maxlength="11" ' +
+            'autocomplete="tel" placeholder="11 位手机号">' +
+        '</div>' +
+        '<div class="sd-field" style="text-align:left">' +
+          '<label class="sd-label" for="name">怎么称呼你</label>' +
+          '<input class="sd-input" id="name" type="text" maxlength="12" ' +
+            'autocomplete="nickname" placeholder="选填，比如「小林」">' +
+        '</div>' +
+        '<button class="submit-btn" type="button" id="loginBtn" style="width:100%;margin-top:22px">进去</button>' +
+        '<div class="gate-note">' +
+          '会员年费 ' + Shop.memberCfg().price + ' 元，一年为期。<br>' +
+          '现在这一步只是留下联系方式，还没到付钱。' +
+        '</div>' +
+      '</div>';
+
+    var phone = document.getElementById('phone');
+    var name = document.getElementById('name');
+    var btn = document.getElementById('loginBtn');
+
+    function submit() {
+      var res = Shop.signIn(phone.value, name.value);
+      if (!res.ok) {
+        toast(res.msg);
+        phone.focus();
+        return;
+      }
+      render();
+    }
+
+    btn.addEventListener('click', submit);
+    [phone, name].forEach(function (el) {
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') submit();
+      });
+    });
+    phone.focus();
+  }
+
+  /* ---------- 开通 ---------- */
+
+  function renderJoin(m) {
+    var cfg = Shop.memberCfg();
+    var p = CFG.pay || {};
+    var qr = cfg.qr || p.qr || '';
+
+    var qrHtml = qr
+      ? '<img class="pay-qr" src="' + esc(qr) + '" alt="收款二维码">'
+      : '<div class="pay-qr-empty">收款码还没设置<br>把收款码图片放到 assets/ 下，<br>再在 shop-config.js 里填上文件名</div>';
+
+    var expired = m.status === 'expired';
+
+    elApp.innerHTML =
+      cardHtml(m) +
+
+      '<section class="sd-card">' +
+        '<h2 class="sd-card-title">' + (expired ? '续一年' : '加入慢岛') + '</h2>' +
+        '<p style="font-size:13.5px;color:var(--ink-soft);line-height:1.9;margin:0 0 20px">' +
+          '会员按年计费，' + cfg.price + ' 元一年，从店家确认到账那天算起 ' + cfg.days + ' 天。<br>' +
+          '这笔钱是会员费，不能抵扣消费。' +
+        '</p>' +
+        '<div class="pay-block">' +
+          qrHtml +
+          '<div class="pay-amount">¥' + cfg.price + '</div>' +
+          '<p class="pay-caption">扫码付 ' + cfg.price + ' 元，再把单号填到下面。</p>' +
+        '</div>' +
+        '<div class="sd-field">' +
+          '<label class="sd-label" for="proof">付款单号</label>' +
+          '<input class="sd-input" id="proof" type="text" autocomplete="off" ' +
+            'maxlength="' + (p.proofMax || 40) + '" placeholder="微信/支付宝账单里的交易单号">' +
+          '<p class="sd-hint">付完款把单号填进来，店家核对到账后为你开通。' +
+            '付款和确认可能不在同一时刻，开通后会在这里显示。</p>' +
+        '</div>' +
+        '<button class="submit-btn" type="button" id="applyBtn" style="display:block;width:100%">' +
+          '我已付好，提交单号</button>' +
+      '</section>' +
+
+      perksHtml() +
+
+      '<p class="sd-hint" style="text-align:center;margin-top:26px">' +
+        '<button class="admin-logout" type="button" id="logoutBtn">不是我，换个手机号</button></p>';
+
+    var btn = document.getElementById('applyBtn');
+    btn.addEventListener('click', function () {
+      if (sending) return;
+      var input = document.getElementById('proof');
+      sending = true;
+      btn.disabled = true;
+      btn.textContent = '提交中…';
+
+      var res = Shop.applyMember(input ? input.value : '');
+      sending = false;
+
+      if (!res.ok) {
+        btn.disabled = false;
+        btn.textContent = '我已付好，提交单号';
+        toast(res.msg);
+        return;
+      }
+      toast('已提交，等店家确认');
+      render();
+    });
+
+    var logout = document.getElementById('logoutBtn');
+    if (logout) {
+      logout.addEventListener('click', function () {
+        Shop.signOut();
+        render();
+      });
+    }
+  }
+
+  /* ---------- 待确认 ---------- */
+
+  function renderPending(m) {
+    elApp.innerHTML =
+      cardHtml(m) +
+      '<section class="sd-card">' +
+        '<h2 class="sd-card-title">等店家确认</h2>' +
+        '<p style="font-size:13.5px;color:var(--ink-soft);line-height:1.9;margin:0">' +
+          '你提交的付款单号 <span class="proof-badge">' + esc(m.proof) + '</span> 已经收到。<br>' +
+          '店家核对到账后会为你开通，这一页刷新就能看到结果。' +
+        '</p>' +
+        '<p class="sd-hint" style="margin-top:18px">' +
+          '如果等了很久还没开通，直接到店里说一声手机号就行。' +
+        '</p>' +
+      '</section>' +
+      perksHtml() +
+      '<p class="sd-hint" style="text-align:center;margin-top:26px">' +
+        '<button class="admin-logout" type="button" id="logoutBtn">退出登录</button></p>';
+
+    var logout = document.getElementById('logoutBtn');
+    if (logout) {
+      logout.addEventListener('click', function () {
+        Shop.signOut();
+        render();
+      });
+    }
+  }
+
+  /* ---------- 已是会员 ---------- */
+
+  function renderActive(m) {
+    var cfg = Shop.memberCfg();
+    elApp.innerHTML =
+      cardHtml(m) +
+      '<section class="sd-card">' +
+        '<h2 class="sd-card-title">你的会员</h2>' +
+        '<div class="kv-row"><span class="k">手机号</span><span class="v">' + esc(m.phone) + '</span></div>' +
+        '<div class="kv-row"><span class="k">开通日期</span><span class="v">' + fmtDate(m.activatedAt) + '</span></div>' +
+        '<div class="kv-row"><span class="k">有效期至</span><span class="v">' + esc(m.expiresAtText) + '</span></div>' +
+        '<div class="kv-row"><span class="k">剩余</span><span class="v">' + m.daysLeft + ' 天</span></div>' +
+        '<div class="kv-row"><span class="k">年费</span><span class="v">' + cfg.price + ' 元 / ' + cfg.days + ' 天</span></div>' +
+        (m.daysLeft <= 30
+          ? '<p class="sd-hint" style="margin-top:16px;color:var(--clay)">会员快到期了，可以到店里续费。</p>'
+          : '') +
+      '</section>' +
+      perksHtml() +
+      '<p class="sd-hint" style="text-align:center;margin-top:26px">' +
+        '<button class="admin-logout" type="button" id="logoutBtn">退出登录</button></p>';
+
+    var logout = document.getElementById('logoutBtn');
+    if (logout) {
+      logout.addEventListener('click', function () {
+        Shop.signOut();
+        render();
+      });
+    }
+  }
+
+  /* ---------- 路由 ---------- */
+
+  function render() {
+    var session = Shop.getSession();
+    if (!session) {
+      renderLogin();
+      return;
+    }
+    var m = Shop.getMember();
+    if (m.status === 'active') {
+      renderActive(m);
+    } else if (m.status === 'pending') {
+      renderPending(m);
+    } else {
+      renderJoin(m);
+    }
+  }
+
   document.getElementById('year').textContent = new Date().getFullYear();
+  render();
+})();
 </script>
 </body>
 </html>
