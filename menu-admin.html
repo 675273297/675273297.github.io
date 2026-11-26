@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>菜单管理 · 慢岛生活</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#faf7f2">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles/global.css">
+<link rel="stylesheet" href="styles/shop.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="慢岛生活 首页">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" role="img" aria-label="慢岛生活">
+        <circle cx="24" cy="21" r="9.5" stroke="var(--clay)" stroke-width="1.6" opacity="0.9"/>
+        <path d="M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6" stroke="var(--moss)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4-2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        <path d="M24 26v-6M24 24.5c-2.1 0-3.4-1.3-3.4-3.2M24 22.6c1.7 0 2.8-1 2.8-2.6" stroke="var(--moss)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">慢岛生活</span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      <a href="index.html">首页</a>
+      <a href="order.html">点单</a>
+      <a href="explore.html">探索</a>
+      <a href="about.html">关于</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap sd-page" id="app"></div>
+</main>
+
+<div class="sd-toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>&copy; <span id="year">2026</span> 慢岛生活</span>
+    <nav class="footer-links" aria-label="页脚导航">
+      <a href="orders.html">订单与店家台</a>
+      <a href="order.html">点单</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/shop-config.js"></script>
+<script src="assets/shop-core.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var Shop = window.MandaoShop;
+  var elApp = document.getElementById('app');
+  var elToast = document.getElementById('toast');
+  var toastTimer = null;
+
+  var EMOJIS = ['🍰', '🍮', '🧁', '🥭', '🥧', '🥐', '🍪', '🍫', '🍨', '🥞',
+                '☕', '🥛', '🍵', '🍹', '🥤', '🎁', '🍽', '🥗'];
+
+  var state = {
+    editor: null,      // 正在编辑/新增的菜；null 表示不显示编辑面板
+    catName: '',       // 新增分类的输入
+    renaming: null,    // 正在改名的分类 id
+    renameText: '',
+    confirm: null      // 需要二次确认的动作：'del:g_xxx' / 'del:c_xxx' / 'reset'
+  };
+
+  /* ---------- 小工具 ---------- */
+
+  function toast(msg) {
+    elToast.textContent = msg;
+    elToast.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      elToast.classList.remove('is-on');
+    }, 2200);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function yuanText(fen) {
+    var n = Math.round(Number(fen) || 0);
+    return (n / 100).toFixed(2).replace(/\.00$/, '');
+  }
+
+  /* ---------- 编辑面板 ---------- */
+
+  function openNew() {
+    var cats = Shop.getCategories();
+    state.editor = {
+      _id: '',
+      categoryId: cats.length ? cats[0]._id : '',
+      name: '',
+      desc: '',
+      price: '',
+      emoji: '🍰',
+      tag: '',
+      stock: '10',
+      onSale: true
+    };
+    renderAll();
+    var el = document.getElementById('fName');
+    if (el) { el.focus(); el.scrollIntoView({ block: 'center' }); }
+  }
+
+  function openEdit(g) {
+    state.editor = {
+      _id: g._id,
+      categoryId: g.categoryId,
+      name: g.name,
+      desc: g.desc || '',
+      price: yuanText(g.price),
+      emoji: g.emoji || '🍰',
+      tag: g.tag || '',
+      stock: String(g.stock),
+      onSale: !!g.onSale
+    };
+    renderAll();
+    var el = document.getElementById('fName');
+    if (el) { el.focus(); el.scrollIntoView({ block: 'center' }); }
+  }
+
+  /** 把面板里正在输入的内容读回 state，免得重绘时丢掉 */
+  function syncEditor() {
+    if (!state.editor) return;
+    var ids = {
+      fName: 'name', fDesc: 'desc', fPrice: 'price',
+      fEmoji: 'emoji', fTag: 'tag', fStock: 'stock'
+    };
+    Object.keys(ids).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) state.editor[ids[id]] = el.value;
+    });
+    var cat = document.getElementById('fCat');
+    if (cat) state.editor.categoryId = cat.value;
+    var sale = document.getElementById('fOnSale');
+    if (sale) state.editor.onSale = sale.checked;
+  }
+
+  function editorHtml() {
+    var e = state.editor;
+    if (!e) return '';
+
+    var cats = Shop.getCategories();
+    var catOpts = cats.map(function (c) {
+      return '<option value="' + esc(c._id) + '"' +
+        (c._id === e.categoryId ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+    }).join('');
+
+    var emojiPicks = EMOJIS.map(function (em) {
+      return '<button class="ma-emoji-pick' + (em === e.emoji ? ' is-on' : '') +
+        '" type="button" data-emoji="' + em + '">' + em + '</button>';
+    }).join('');
+
+    return '<section class="ma-editor">' +
+      '<h2 class="ma-editor-title">' + (e._id ? '编辑菜品' : '新增菜品') + '</h2>' +
+
+      '<div class="ma-grid2">' +
+        '<div class="sd-field">' +
+          '<label class="sd-label" for="fName">名称</label>' +
+          '<input class="sd-input" id="fName" type="text" maxlength="24" ' +
+            'placeholder="比如 榴莲千层" value="' + esc(e.name) + '">' +
+        '</div>' +
+        '<div class="sd-field">' +
+          '<label class="sd-label" for="fCat">分类</label>' +
+          '<select class="sd-input" id="fCat">' + catOpts + '</select>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="sd-field">' +
+        '<label class="sd-label" for="fDesc">一句话介绍</label>' +
+        '<input class="sd-input" id="fDesc" type="text" maxlength="60" ' +
+          'placeholder="猫山王果肉 · 8 层薄饼 · 冷藏 2 小时" value="' + esc(e.desc) + '">' +
+        '<p class="sd-hint">选填，顾客在菜单上会看到。</p>' +
+      '</div>' +
+
+      '<div class="ma-grid3">' +
+        '<div class="sd-field">' +
+          '<label class="sd-label" for="fPrice">价格（元）</label>' +
+          '<input class="sd-input" id="fPrice" type="number" min="0" step="0.5" ' +
+            'placeholder="28" value="' + esc(e.price) + '">' +
+        '</div>' +
+        '<div class="sd-field">' +
+          '<label class="sd-label" for="fStock">库存（份）</label>' +
+          '<input class="sd-input" id="fStock" type="number" min="0" step="1" ' +
+            'placeholder="30" value="' + esc(e.stock) + '">' +
+        '</div>' +
+        '<div class="sd-field">' +
+          '<label class="sd-label" for="fTag">角标</label>' +
+          '<input class="sd-input" id="fTag" type="text" maxlength="6" ' +
+            'placeholder="招牌 / 新品" value="' + esc(e.tag) + '">' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="sd-field">' +
+        '<label class="sd-label" for="fEmoji">图标</label>' +
+        '<div class="ma-emoji-row">' +
+          '<input class="sd-input ma-emoji-input" id="fEmoji" type="text" maxlength="4" ' +
+            'value="' + esc(e.emoji) + '">' +
+          '<span class="sd-hint" style="margin:0">可以直接粘贴任意 emoji</span>' +
+        '</div>' +
+        '<div class="ma-emoji-picks">' + emojiPicks + '</div>' +
+      '</div>' +
+
+      '<label class="ma-check">' +
+        '<input type="checkbox" id="fOnSale"' + (e.onSale ? ' checked' : '') + '>' +
+        '<span>立即上架（顾客能点到）</span>' +
+      '</label>' +
+
+      '<div class="ma-editor-actions">' +
+        '<button class="mini-btn is-main" type="button" id="saveBtn">保存</button>' +
+        '<button class="mini-btn" type="button" id="cancelBtn">取消</button>' +
+        (e._id ? '<button class="mini-btn ma-danger" type="button" data-act="delGoods" data-id="' +
+          esc(e._id) + '">删除这道菜</button>' : '') +
+      '</div>' +
+    '</section>';
+  }
+
+  /* ---------- 商品行 ---------- */
+
+  function goodsRowHtml(g) {
+    var off = !g.onSale;
+    return '<div class="ma-row' + (off ? ' is-off' : '') + '">' +
+      '<div class="ma-emoji" aria-hidden="true">' + esc(g.emoji) + '</div>' +
+      '<div class="ma-main">' +
+        '<div class="ma-name">' + esc(g.name) +
+          (g.tag ? '<span class="ma-tag">' + esc(g.tag) + '</span>' : '') +
+          (off ? '<span class="ma-off">已下架</span>' : '') +
+        '</div>' +
+        '<div class="ma-desc">' + esc(g.desc || '—') + '</div>' +
+      '</div>' +
+      '<div class="ma-price">¥' + g.priceText + '</div>' +
+      '<div class="ma-stock">' +
+        '<span class="ma-stock-label">库存</span>' +
+        '<input type="number" min="0" step="1" data-stock="' + esc(g._id) + '" ' +
+          'value="' + g.stock + '" aria-label="' + esc(g.name) + ' 库存">' +
+      '</div>' +
+      '<div class="ma-tools">' +
+        '<button class="mini-btn' + (off ? '' : ' is-main') + '" type="button" ' +
+          'data-act="toggle" data-id="' + esc(g._id) + '">' + (off ? '上架' : '下架') + '</button>' +
+        '<button class="mini-btn" type="button" data-act="edit" data-id="' + esc(g._id) + '">编辑</button>' +
+        '<button class="mini-btn" type="button" data-act="up" data-id="' + esc(g._id) + '">↑</button>' +
+        '<button class="mini-btn" type="button" data-act="down" data-id="' + esc(g._id) + '">↓</button>' +
+        '<button class="mini-btn ma-danger" type="button" data-act="delGoods" data-id="' +
+          esc(g._id) + '">' + confirmLabel('del:g:' + g._id, '删除') + '</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function confirmLabel(key, text) {
+    return state.confirm === key ? '确认删除？' : text;
+  }
+
+  /* ---------- 分类 ---------- */
+
+  function catSectionHtml(cat, goods) {
+    var rows = goods.length
+      ? goods.map(goodsRowHtml).join('')
+      : '<p class="ma-empty">这个分类下还没有菜品</p>';
+
+    var renaming = state.renaming === cat._id;
+
+    var nameHtml = renaming
+      ? '<input class="ma-rename" id="renameInput" type="text" maxlength="8" ' +
+          'value="' + esc(state.renameText || cat.name) + '">' +
+        '<button class="mini-btn is-main" type="button" data-act="renameOk">保存</button>'
+      : '<span class="ma-cat-name">' + esc(cat.name) + '</span>' +
+        '<span class="ma-cat-count">' + goods.length + ' 道</span>';
+
+    return '<section class="ma-cat">' +
+      '<div class="ma-cat-head">' +
+        nameHtml +
+        '<div class="ma-cat-tools">' +
+          (renaming
+            ? '<button class="mini-btn" type="button" data-act="renameCancel">取消</button>'
+            : '<button class="mini-btn" type="button" data-act="rename" data-id="' +
+                esc(cat._id) + '">改名</button>' +
+              '<button class="mini-btn" type="button" data-act="catUp" data-id="' +
+                esc(cat._id) + '">↑</button>' +
+              '<button class="mini-btn" type="button" data-act="catDown" data-id="' +
+                esc(cat._id) + '">↓</button>' +
+              '<button class="mini-btn ma-danger" type="button" data-act="delCat" data-id="' +
+                esc(cat._id) + '">' + confirmLabel('del:c:' + cat._id, '删分类') + '</button>') +
+        '</div>' +
+      '</div>' +
+      rows +
+    '</section>';
+  }
+
+  /* ---------- 整页 ---------- */
+
+  function renderAll() {
+    var cats = Shop.getCategories();
+    var goods = Shop.getGoods({ includeOffSale: true });
+
+    if (!Shop.isAdminUnlocked()) {
+      elApp.innerHTML =
+        '<div class="admin-gate">' +
+          '<h3>菜单管理</h3>' +
+          '<p>这里是店家的后台，改价、上下架、加减菜品都在这里。<br>输入口令进入。</p>' +
+          '<div class="sd-field">' +
+            '<input class="sd-input" id="pin" type="password" inputmode="numeric" ' +
+              'autocomplete="off" placeholder="店家口令" style="text-align:center;letter-spacing:0.3em">' +
+          '</div>' +
+          '<button class="submit-btn" type="button" id="unlockBtn" style="width:100%;margin-top:14px">进入</button>' +
+          '<p class="sd-hint" style="margin-top:18px"><a href="orders.html">← 回到订单与店家台</a></p>' +
+        '</div>';
+      bindGate();
+      return;
+    }
+
+    var onSale = goods.filter(function (g) { return g.onSale; }).length;
+
+    // 找出分类对不上的菜，别让它们悄悄消失
+    var catIds = {};
+    cats.forEach(function (c) { catIds[c._id] = true; });
+    var orphans = goods.filter(function (g) { return !catIds[g.categoryId]; });
+
+    var html = '';
+
+    html += '<div class="ma-head">' +
+      '<div>' +
+        '<h1 class="ma-title">菜单管理</h1>' +
+        '<p class="ma-sub">共 ' + goods.length + ' 道 · 在售 ' + onSale + ' 道 · ' +
+          cats.length + ' 个分类</p>' +
+      '</div>' +
+      '<div class="ma-head-actions">' +
+        '<a class="mini-btn" href="orders.html">店家台</a>' +
+        '<button class="submit-btn" type="button" id="addBtn">新增菜品</button>' +
+      '</div>' +
+    '</div>';
+
+    if (Shop.backend !== 'cloudbase') {
+      html += '<p class="sd-mode-tip"><span>' +
+        '改动只存在<strong>这台设备</strong>的浏览器里。顾客用自己手机看到的还是旧菜单——' +
+        '等接上云端才会同步。' +
+        '</span></p>';
+    }
+
+    html += editorHtml();
+
+    if (!cats.length) {
+      html += '<div class="sd-empty"><span class="sd-empty-emoji">🗂</span>' +
+        '<p>还没有分类，先建一个</p></div>';
+    }
+
+    cats.forEach(function (c) {
+      html += catSectionHtml(c, goods.filter(function (g) { return g.categoryId === c._id; }));
+    });
+
+    if (orphans.length) {
+      html += '<section class="ma-cat">' +
+        '<div class="ma-cat-head"><span class="ma-cat-name">未分类</span>' +
+          '<span class="ma-cat-count">' + orphans.length + ' 道</span></div>' +
+        orphans.map(goodsRowHtml).join('') +
+      '</section>';
+    }
+
+    // 分类管理
+    html += '<section class="sd-card ma-cats">' +
+      '<h2 class="sd-card-title">分类</h2>' +
+      '<div class="ma-cat-input">' +
+        '<input class="sd-input" id="newCat" type="text" maxlength="8" ' +
+          'placeholder="新分类名，比如 季节限定" value="' + esc(state.catName) + '">' +
+        '<button class="mini-btn is-main" type="button" id="addCatBtn">添加</button>' +
+      '</div>' +
+      '<p class="sd-hint">分类顺序就是顾客点单页上从上到下的顺序。</p>' +
+    '</section>';
+
+    // 危险操作
+    html += '<div class="ma-bottom">' +
+      '<button class="mini-btn ma-danger" type="button" data-act="reset">' +
+        (state.confirm === 'reset' ? '确定恢复？会丢掉所有改动' : '恢复成初始菜单') +
+      '</button>' +
+      '<button class="admin-logout" type="button" id="lockBtn">退出店家模式</button>' +
+    '</div>';
+
+    elApp.innerHTML = html;
+    bind();
+  }
+
+  /* ---------- 事件 ---------- */
+
+  function bindGate() {
+    var btn = document.getElementById('unlockBtn');
+    var pin = document.getElementById('pin');
+    function tryUnlock() {
+      var res = Shop.unlockAdmin(pin ? pin.value : '');
+      if (!res.ok) {
+        toast(res.msg);
+        if (pin) { pin.value = ''; pin.focus(); }
+        return;
+      }
+      renderAll();
+    }
+    if (btn) btn.addEventListener('click', tryUnlock);
+    if (pin) {
+      pin.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') tryUnlock();
+      });
+      pin.focus();
+    }
+  }
+
+  function bind() {
+    var addBtn = document.getElementById('addBtn');
+    if (addBtn) addBtn.addEventListener('click', openNew);
+
+    var saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function () {
+        syncEditor();
+        var e = state.editor;
+        var res = Shop.saveGoods({
+          _id: e._id || undefined,
+          categoryId: e.categoryId,
+          name: e.name,
+          desc: e.desc,
+          price: Shop.yuan2fen(e.price),
+          emoji: e.emoji,
+          tag: e.tag,
+          stock: e.stock === '' ? 0 : e.stock,
+          onSale: e.onSale
+        });
+        if (!res.ok) { toast(res.msg); return; }
+        toast(res.isNew ? '已新增' : '已保存');
+        state.editor = null;
+        renderAll();
+      });
+    }
+
+    var cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () {
+        state.editor = null;
+        state.confirm = null;
+        renderAll();
+      });
+    }
+
+    // emoji 快捷选
+    elApp.querySelectorAll('[data-emoji]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        syncEditor();
+        state.editor.emoji = b.getAttribute('data-emoji');
+        renderAll();
+      });
+    });
+
+    // 库存直接改
+    elApp.querySelectorAll('[data-stock]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var id = inp.getAttribute('data-stock');
+        var res = Shop.setGoodsStock(id, inp.value);
+        if (!res.ok) { toast(res.msg); renderAll(); return; }
+        toast('库存已改为 ' + res.stock);
+      });
+    });
+
+    // 新增分类
+    var newCat = document.getElementById('newCat');
+    if (newCat) {
+      newCat.addEventListener('input', function () { state.catName = newCat.value; });
+      newCat.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') addCat();
+      });
+    }
+    var addCatBtn = document.getElementById('addCatBtn');
+    if (addCatBtn) addCatBtn.addEventListener('click', addCat);
+
+    var renameInput = document.getElementById('renameInput');
+    if (renameInput) {
+      renameInput.addEventListener('input', function () { state.renameText = renameInput.value; });
+      renameInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') doRename();
+        if (e.key === 'Escape') { state.renaming = null; renderAll(); }
+      });
+      renameInput.focus();
+      renameInput.select();
+    }
+
+    var lockBtn = document.getElementById('lockBtn');
+    if (lockBtn) {
+      lockBtn.addEventListener('click', function () {
+        Shop.lockAdmin();
+        renderAll();
+      });
+    }
+
+    // 所有带 data-act 的按钮
+    elApp.querySelectorAll('[data-act]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.getAttribute('data-act');
+        var id = btn.getAttribute('data-id');
+        handleAction(act, id);
+      });
+    });
+  }
+
+  function addCat() {
+    var res = Shop.saveCategory({ name: state.catName });
+    if (!res.ok) { toast(res.msg); return; }
+    state.catName = '';
+    toast('分类已添加');
+    renderAll();
+  }
+
+  function doRename() {
+    var res = Shop.saveCategory({ _id: state.renaming, name: state.renameText });
+    if (!res.ok) { toast(res.msg); return; }
+    state.renaming = null;
+    state.renameText = '';
+    toast('已改名');
+    renderAll();
+  }
+
+  function handleAction(act, id) {
+    // ---- 二次确认类的动作 ----
+    if (act === 'delGoods') {
+      var key = 'del:g:' + id;
+      if (state.confirm !== key) {
+        state.confirm = key;
+        renderAll();
+        return;
+      }
+      var r1 = Shop.removeGoods(id);
+      if (!r1.ok) { toast(r1.msg); state.confirm = null; renderAll(); return; }
+      state.confirm = null;
+      state.editor = null;
+      toast('已删除');
+      renderAll();
+      return;
+    }
+
+    if (act === 'delCat') {
+      var key2 = 'del:c:' + id;
+      if (state.confirm !== key2) {
+        state.confirm = key2;
+        renderAll();
+        return;
+      }
+      var r2 = Shop.removeCategory(id);
+      state.confirm = null;
+      if (!r2.ok) { toast(r2.msg); renderAll(); return; }
+      toast('分类已删除');
+      renderAll();
+      return;
+    }
+
+    if (act === 'reset') {
+      if (state.confirm !== 'reset') {
+        state.confirm = 'reset';
+        renderAll();
+        return;
+      }
+      Shop.resetMenu();
+      state.confirm = null;
+      state.editor = null;
+      toast('已恢复初始菜单');
+      renderAll();
+      return;
+    }
+
+    // ---- 普通动作 ----
+    state.confirm = null;
+
+    if (act === 'edit') {
+      var g = Shop.findGoods(id);
+      if (!g) { toast('没找到这道菜'); renderAll(); return; }
+      // findGoods 返回的是库里的原始对象，价格是分
+      openEdit({
+        _id: g._id,
+        categoryId: g.categoryId,
+        name: g.name,
+        desc: g.desc,
+        price: g.price,
+        emoji: g.emoji,
+        tag: g.tag,
+        stock: g.stock,
+        onSale: g.onSale
+      });
+      return;
+    }
+
+    if (act === 'toggle') {
+      var target = Shop.findGoods(id);
+      if (!target) return;
+      var res = Shop.setGoodsOnSale(id, !target.onSale);
+      if (!res.ok) toast(res.msg);
+      renderAll();
+      return;
+    }
+
+    if (act === 'up' || act === 'down') {
+      var mv = Shop.moveGoods(id, act === 'up' ? -1 : 1);
+      if (!mv.ok) toast(mv.msg);
+      renderAll();
+      return;
+    }
+
+    if (act === 'catUp' || act === 'catDown') {
+      var cm = Shop.moveCategory(id, act === 'catUp' ? -1 : 1);
+      if (!cm.ok) toast(cm.msg);
+      renderAll();
+      return;
+    }
+
+    if (act === 'rename') {
+      state.renaming = id;
+      var cat = null;
+      Shop.getCategories().forEach(function (c) { if (c._id === id) cat = c; });
+      state.renameText = cat ? cat.name : '';
+      renderAll();
+      return;
+    }
+
+    if (act === 'renameOk') {
+      doRename();
+      return;
+    }
+
+    if (act === 'renameCancel') {
+      state.renaming = null;
+      state.renameText = '';
+      renderAll();
+      return;
+    }
+  }
+
+  /* ---------- 启动 ---------- */
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+  renderAll();
+})();
+</script>
+</body>
+</html>
