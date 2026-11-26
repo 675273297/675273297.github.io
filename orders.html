@@ -53,6 +53,7 @@
 
 <script src="assets/shop-config.js"></script>
 <script src="assets/shop-core.js"></script>
+<script src="assets/shop-pay.js"></script>
 <script>
 (function () {
   'use strict';
@@ -96,21 +97,8 @@
   }
 
   /* ---------- 收款码区块 ---------- */
-  function payBlockHtml(amountText, opts) {
-    var o = opts || {};
-    var p = payCfg();
-    var qr = o.qr || p.qr || '';
-    var note = p.note || '';
-
-    var qrHtml = qr
-      ? '<img class="pay-qr" src="' + esc(qr) + '" alt="收款二维码">'
-      : '<div class="pay-qr-empty">收款码还没设置<br>把收款码图片放到 assets/ 下，再在 shop-config.js 里填上文件名</div>';
-
-    return '<div class="pay-block">' +
-      qrHtml +
-      '<div class="pay-amount">¥' + esc(amountText) + '</div>' +
-      (note ? '<p class="pay-caption">' + esc(note) + '</p>' : '') +
-    '</div>';
+  function payBlockHtml(amountText) {
+    return window.MandaoPay.blockHtml(amountText);
   }
 
   function proofFormHtml(placeholder, btnText) {
@@ -241,6 +229,7 @@
     html += '<div class="order-card-actions" style="margin-top:20px;justify-content:center">' + actions + '</div>';
 
     elApp.innerHTML = html;
+    window.MandaoPay.bind(elApp);
     bindDetail(order);
   }
 
