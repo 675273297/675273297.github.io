@@ -941,6 +941,64 @@
     return pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
   }
 
+  // ---------- 热搜刷新 ----------
+  // 热搜是定时任务抓好的静态文件，浏览器直接跨域请求各平台接口拿不到。
+  // 「刷新」= 带时间戳重新下载这份文件，绕过浏览器 / CDN 缓存。
+  var hotRefreshBtn = document.getElementById('hotRefresh');
+  var hotLoading = false;
+  var hotStatusText = '';
+  var hotLastLoad = Date.now();
+  var HOT_REFRESH_GAP = 30 * 1000; // 30 秒内不重复拉，避免来回切换地区时狂刷
+
+  function setHotStatus(text) {
+    hotStatusText = text || '';
+    if (hotStatusText) hotUpdatedEl.textContent = hotStatusText;
+  }
+
+  /**
+   * 重新拉一次热搜数据
+   * force=true 时忽略节流（手动点按钮）
+   */
+  function refreshHot(force) {
+    if (hotLoading) return;
+    if (!force && Date.now() - hotLastLoad < HOT_REFRESH_GAP) return;
+
+    hotLoading = true;
+    setHotStatus('更新中…');
+    if (hotRefreshBtn) hotRefreshBtn.classList.add('is-loading');
+
+    var script = document.createElement('script');
+    var settled = false;
+
+    function finish(ok) {
+      if (settled) return;
+      settled = true;
+      hotLoading = false;
+      if (hotRefreshBtn) hotRefreshBtn.classList.remove('is-loading');
+      if (script.parentNode) script.parentNode.removeChild(script);
+
+      var fresh = window.HOT_BOARDS;
+      if (ok && fresh && (fresh.boards || []).length) {
+        hotData = fresh;
+        hotLastLoad = Date.now();
+        setHotStatus('');
+        renderBoardTabs();
+        renderHotList();
+      } else {
+        // 失败就保留旧数据，别把已经在看的内容清空
+        setHotStatus('更新失败');
+      }
+    }
+
+    script.onload = function () { finish(true); };
+    script.onerror = function () { finish(false); };
+    script.src = 'assets/hot-boards.js?t=' + Date.now();
+    document.head.appendChild(script);
+
+    // 网络卡住时的兜底，别让按钮一直转
+    setTimeout(function () { finish(false); }, 8000);
+  }
+
   /** 当前平台对象 */
   function currentBoard() {
     var boards = hotData.boards || [];
@@ -981,7 +1039,7 @@
       return;
     }
 
-    hotUpdatedEl.textContent = fmtTime(board.updated || hotData.updated);
+    hotUpdatedEl.textContent = hotStatusText || fmtTime(board.updated || hotData.updated);
 
     var items = board.items || [];
     var pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -1386,6 +1444,8 @@
   function renderHot() {
     renderBoardTabs();
     renderHotList();
+    // 进入新地区 / 换国家时顺手拉一次最新（30 秒内不重复）
+    refreshHot(false);
   }
 
   // ---------- 鼠标跟随标签 ----------
@@ -1471,6 +1531,13 @@
   updateBreadcrumb();
   renderPortals();
   renderHot();
+
+  // 手动刷新热搜
+  if (hotRefreshBtn) {
+    hotRefreshBtn.addEventListener('click', function () {
+      refreshHot(true);
+    });
+  }
   renderWorldClock();
   renderNote(pickNote());
   fetchRemote(); // 预取一条，第一次点击就能出远程内容
