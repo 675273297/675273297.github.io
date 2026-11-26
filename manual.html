@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>使用手册 · 慢岛生活</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#faf7f2">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23faf7f2'/%3E%3Ccircle cx='24' cy='21' r='9.5' fill='none' stroke='%23c67b4e' stroke-width='2'/%3E%3Cpath d='M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6' fill='none' stroke='%236b7f5e' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles/global.css">
+<link rel="stylesheet" href="styles/shop.css">
+<link rel="stylesheet" href="styles/manual.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="慢岛生活 首页">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" role="img" aria-label="慢岛生活">
+        <circle cx="24" cy="21" r="9.5" stroke="var(--clay)" stroke-width="1.6" opacity="0.9"/>
+        <path d="M6 32c4.5-4.2 9-6 18-6s13.5 1.8 18 6" stroke="var(--moss)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M9 38.5c3.2 2.4 6.4 2.4 9.6 0s6.4-2.4 9.6 0 6.4-2.4 9.6 0" stroke="var(--moss)" stroke-width="1.4" stroke-linecap="round" opacity="0.45"/>
+        <path d="M24 26v-6M24 24.5c-2.1 0-3.4-1.3-3.4-3.2M24 22.6c1.7 0 2.8-1 2.8-2.6" stroke="var(--moss)" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-name">慢岛生活</span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      <a href="index.html">首页</a>
+      <a href="order.html">点单</a>
+      <a href="explore.html">探索</a>
+      <a href="about.html">关于</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="doc-hero">
+      <h1>使用手册</h1>
+      <p>这套点单系统怎么用、每个页面在哪、改东西要动哪个文件。都是照着现网的实际状态写的。</p>
+      <div class="doc-stamp">
+        <span>最后更新 <b>2026-11-26</b></span>
+        <span>线上地址 <b>675273297.github.io</b></span>
+        <span>版本 <b>单机模式</b></span>
+      </div>
+    </div>
+
+    <div class="doc-wrap">
+
+      <nav class="doc-toc" aria-label="目录">
+        <p class="doc-toc-title">目录</p>
+        <a href="#pages">一、页面清单</a>
+        <a href="#pin">二、口令</a>
+        <a href="#daily">三、接一单的完整流程</a>
+        <a href="#menu">四、改菜单</a>
+        <a href="#member">五、开通会员</a>
+        <a href="#config">六、配置项</a>
+        <a href="#data">七、数据存在哪</a>
+        <a href="#files">八、文件结构</a>
+        <a href="#limits">九、已知限制</a>
+        <a href="#changelog">十、变更记录</a>
+      </nav>
+
+      <div class="doc-body">
+
+        <!-- ================= 1 ================= -->
+        <section class="doc-sec" id="pages">
+          <h2>一、页面清单</h2>
+          <p>点页面名直接打开。线上前缀都是 <code>https://675273297.github.io/</code>。</p>
+
+          <table>
+            <thead>
+              <tr><th>页面</th><th>地址</th><th>干什么</th><th>谁看</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><a href="index.html">首页</a></td>
+                <td><code>index.html</code></td>
+                <td>门面，新闻门户和自己做的入口</td>
+                <td>所有人</td>
+              </tr>
+              <tr>
+                <td><a href="order.html">点单</a></td>
+                <td><code>order.html</code></td>
+                <td>菜单、加购物车</td>
+                <td>顾客</td>
+              </tr>
+              <tr>
+                <td><a href="cart.html">确认订单</a></td>
+                <td><code>cart.html</code></td>
+                <td>选堂食/自取、填桌号、备注</td>
+                <td>顾客</td>
+              </tr>
+              <tr>
+                <td><a href="orders.html">我的订单 · 店家台</a></td>
+                <td><code>orders.html</code></td>
+                <td>顾客看取餐码；店家在里面确认收款、接单、出餐</td>
+                <td>顾客 + 你</td>
+              </tr>
+              <tr>
+                <td><a href="menu-admin.html">菜单管理</a></td>
+                <td><code>menu-admin.html</code></td>
+                <td>改菜、改价、上下架、改库存、分类</td>
+                <td>你</td>
+              </tr>
+              <tr>
+                <td><a href="member.html">会员</a></td>
+                <td><code>member.html</code></td>
+                <td>手机号登录、开通年费会员</td>
+                <td>顾客</td>
+              </tr>
+              <tr>
+                <td><a href="explore.html">探索</a></td>
+                <td><code>explore.html</code></td>
+                <td>世界地图、各地门户、AI 入口</td>
+                <td>所有人</td>
+              </tr>
+              <tr>
+                <td><a href="about.html">关于</a></td>
+                <td><code>about.html</code></td>
+                <td>介绍</td>
+                <td>所有人</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="doc-note">
+            <strong>两个后台入口</strong>：<code>orders.html</code> 里的「店家」标签是接单台，
+            <code>menu-admin.html</code> 是菜单后台。两个都要口令，进一次就记住，换页面不用重输。
+          </div>
+        </section>
+
+        <!-- ================= 2 ================= -->
+        <section class="doc-sec" id="pin">
+          <h2>二、口令</h2>
+
+          <p>当前口令是 <strong>2580</strong>。</p>
+
+          <p>改法：打开 <code>assets/shop-config.js</code>，找到这一段，改引号里的数字：</p>
+
+          <pre><code>admin: {
+  pin: '2580'
+}</code></pre>
+
+          <div class="doc-note">
+            <strong>这个口令不是安全措施，别指望它防人。</strong><br>
+            它在公开的 JS 文件里，谁都能看到；而且现在的数据都存各自设备的浏览器里，
+            别人就算"破解"了，动的也只是他自己的浏览器，碰不到你的数据。
+            它的实际作用是——<strong>防止顾客在你的平板上误点进后台</strong>。
+          </div>
+
+          <p>以后接了云端，身份由服务端校验，那时候口令才会变成真的门禁。</p>
+        </section>
+
+        <!-- ================= 3 ================= -->
+        <section class="doc-sec" id="daily">
+          <h2>三、接一单的完整流程</h2>
+
+          <h3>顾客那边</h3>
+          <ol>
+            <li>打开 <a href="order.html">点单</a>，点 <code>+</code> 加东西</li>
+            <li>点底部「去结算」</li>
+            <li>选「到店自取」或「堂食」，堂食要填桌号，可写备注</li>
+            <li>点「提交订单」，拿到订单号和取餐码</li>
+            <li>页面显示微信/支付宝二维码，<strong>扫码后手动输入金额</strong>转账</li>
+            <li>回来把付款单号（账单里的「交易单号」）填进去，点「我已经付好了」</li>
+            <li>订单变成「待确认」，等你核对</li>
+          </ol>
+
+          <h3>你这边</h3>
+          <ol>
+            <li>打开 <a href="orders.html">我的订单</a>，切到「店家」</li>
+            <li>「待确认收款」里有一单，能看到顾客填的单号</li>
+            <li>去微信/支付宝对一下账，确实收到了，点 <strong>「确认收款，开始做」</strong></li>
+            <li>订单进「待接单」→ 点「接单」→ 制作中</li>
+            <li>做好了点「做好了」→ 待取餐。顾客那边取餐码会放大显示</li>
+            <li>顾客取走，点「已取餐」→ 完成</li>
+          </ol>
+
+          <div class="doc-note is-plain">
+            如果顾客付了但你没收到，点「没收到，取消」，库存会自动退回。
+          </div>
+
+          <p>「今日营收」只算<strong>你已经确认收款</strong>的单，待确认的不算，不会虚高。</p>
+        </section>
+
+        <!-- ================= 4 ================= -->
+        <section class="doc-sec" id="menu">
+          <h2>四、改菜单</h2>
+
+          <p>在 <a href="menu-admin.html">菜单管理</a> 里，输口令进入。当前 13 道菜、4 个分类。</p>
+
+          <h3>加一道新菜</h3>
+          <ol>
+            <li>点右上「新增菜品」</li>
+            <li>填名称、选分类、写一句话介绍</li>
+            <li>填价格（单位是<strong>元</strong>，可以写 22 或 22.5）和库存</li>
+            <li>角标选填，比如「招牌」「新品」，会显示在菜名旁边</li>
+            <li>图标：点下面的 emoji 快捷选，或直接粘贴任意 emoji</li>
+            <li>「立即上架」勾着就能马上被顾客点到</li>
+            <li>点「保存」</li>
+          </ol>
+
+          <h3>改价格 / 改库存 / 上下架</h3>
+          <ul>
+            <li><strong>改价</strong>：点那一行的「编辑」，改价格，保存</li>
+            <li><strong>改库存</strong>：直接点列表里的库存数字，改成新数字，回车</li>
+            <li><strong>下架</strong>：点「下架」，顾客端立刻看不到，数据还留着</li>
+            <li><strong>调顺序</strong>：<code>↑</code> <code>↓</code>，调的是顾客看到的顺序</li>
+            <li><strong>删除</strong>：点「删除」，按钮会变成「确认删除？」，<strong>再点一次</strong>才真删</li>
+          </ul>
+
+          <h3>分类</h3>
+          <ul>
+            <li>页面最下面的「分类」可以加新分类，比如「季节限定」</li>
+            <li>分类名旁边的「改名」「↑」「↓」调整显示</li>
+            <li>分类下还有菜时不许删，会告诉你有几道</li>
+            <li>分类顺序 = 顾客点单页上从上到下的顺序</li>
+          </ul>
+
+          <div class="doc-note">
+            <strong>改动只存在你操作的这台设备上。</strong>
+            你在平板上把价格改成 30，顾客用自己手机打开看到的还是原来的 28。
+            因为现在没有后端，数据存在浏览器里。要让所有人看到同一个菜单，得接云端。
+          </div>
+        </section>
+
+        <!-- ================= 5 ================= -->
+        <section class="doc-sec" id="member">
+          <h2>五、开通会员</h2>
+
+          <p>会员是<strong>年费 100 元 / 365 天</strong>，不是储值，不能抵扣消费。</p>
+
+          <h3>顾客申请</h3>
+          <ol>
+            <li>打开 <a href="member.html">会员</a>，填手机号和称呼</li>
+            <li>选微信或支付宝，扫码付 100 元（<strong>金额要手动输</strong>）</li>
+            <li>把付款单号填进去，提交</li>
+          </ol>
+
+          <h3>你确认</h3>
+          <ol>
+            <li>打开 <a href="orders.html">我的订单</a> → 「店家」</li>
+            <li>往下拉，看到「会员开通申请」，有手机号和单号</li>
+            <li>核对到账后点「已到账，开通会员」</li>
+            <li>顾客刷新会员页，就能看到会员卡和到期日</li>
+          </ol>
+
+          <p>会员权益的文案在 <code>assets/shop-config.js</code> 的 <code>member.perks</code> 里，改完页面自动跟着变。</p>
+        </section>
+
+        <!-- ================= 6 ================= -->
+        <section class="doc-sec" id="config">
+          <h2>六、配置项</h2>
+
+          <p>需要改的东西几乎都在 <code>assets/shop-config.js</code> 这一个文件里。改完发布、刷新页面就生效。</p>
+
+          <table>
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>backend</code></td>
+                <td>字符串</td>
+                <td><code>'local'</code> 单机模式（现在）。<code>'cloudbase'</code> 云端模式（还没做）</td>
+              </tr>
+              <tr>
+                <td><code>envId</code></td>
+                <td>字符串</td>
+                <td>云开发环境 ID，切云端时才需要</td>
+              </tr>
+              <tr>
+                <td><code>shop.name</code></td>
+                <td>字符串</td>
+                <td>店名，显示在点单页顶部</td>
+              </tr>
+              <tr>
+                <td><code>shop.slogan</code></td>
+                <td>字符串</td>
+                <td>一句话，留空不显示</td>
+              </tr>
+              <tr>
+                <td><code>shop.openTime</code></td>
+                <td>字符串</td>
+                <td>营业时间</td>
+              </tr>
+              <tr>
+                <td><code>shop.address</code></td>
+                <td>字符串</td>
+                <td>门店地址，留空不显示</td>
+              </tr>
+              <tr>
+                <td><code>shop.notice</code></td>
+                <td>字符串</td>
+                <td>提示条，比如「现点现做，出餐约 15 分钟」</td>
+              </tr>
+              <tr>
+                <td><code>pay.methods[]</code></td>
+                <td>数组</td>
+                <td>收款方式。每项有 <code>id</code> / <code>name</code> / <code>qr</code> / <code>payee</code> / <code>hint</code></td>
+              </tr>
+              <tr>
+                <td><code>pay.methods[].qr</code></td>
+                <td>字符串</td>
+                <td>收款码图片路径，比如 <code>'assets/pay-wechat.png'</code></td>
+              </tr>
+              <tr>
+                <td><code>pay.methods[].payee</code></td>
+                <td>字符串</td>
+                <td>收款人称呼，填了会显示「转给 XXX」。现在是空的</td>
+              </tr>
+              <tr>
+                <td><code>pay.default</code></td>
+                <td>字符串</td>
+                <td>默认选中哪个支付方式，写某项的 <code>id</code>，现在是 <code>'wechat'</code></td>
+              </tr>
+              <tr>
+                <td><code>pay.note</code></td>
+                <td>字符串</td>
+                <td>订单页收款码下面的小字</td>
+              </tr>
+              <tr>
+                <td><code>pay.proofMax</code></td>
+                <td>数字</td>
+                <td>付款单号最多几位，默认 40</td>
+              </tr>
+              <tr>
+                <td><code>member.price</code></td>
+                <td>数字</td>
+                <td>会员年费，单位元，现在是 100</td>
+              </tr>
+              <tr>
+                <td><code>member.days</code></td>
+                <td>数字</td>
+                <td>有效期天数，现在是 365</td>
+              </tr>
+              <tr>
+                <td><code>member.perks[]</code></td>
+                <td>数组</td>
+                <td>会员权益。<code>title</code> 加粗、<code>desc</code> 说明</td>
+              </tr>
+              <tr>
+                <td><code>admin.pin</code></td>
+                <td>字符串</td>
+                <td>后台口令，现在是 <code>'2580'</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ================= 7 ================= -->
+        <section class="doc-sec" id="data">
+          <h2>七、数据存在哪</h2>
+
+          <p>单机模式下，所有数据存在浏览器的 localStorage 里。名字都带前缀 <code>mandao_</code>。</p>
+
+          <table>
+            <thead>
+              <tr><th>键名</th><th>存的是什么</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>mandao_goods_v1</code></td><td>所有菜品（含下架的）</td></tr>
+              <tr><td><code>mandao_categories_v1</code></td><td>分类</td></tr>
+              <tr><td><code>mandao_cart_v1</code></td><td>购物车</td></tr>
+              <tr><td><code>mandao_orders_v1</code></td><td>所有订单</td></tr>
+              <tr><td><code>mandao_counter_v1</code></td><td>取餐号计数器（按天重置）</td></tr>
+              <tr><td><code>mandao_member_v1</code></td><td>会员状态、到期时间</td></tr>
+              <tr><td><code>mandao_session_v1</code></td><td>登录的手机号</td></tr>
+              <tr><td><code>mandao_admin_v1</code></td><td>是否已解锁后台</td></tr>
+              <tr><td><code>mandao_pay_method_v1</code></td><td>顾客上次选的支付方式</td></tr>
+            </tbody>
+          </table>
+
+          <div class="doc-note">
+            <strong>清浏览器缓存 = 数据全没。</strong>
+            包括菜单改动、订单、会员。别用无痕窗口当点单机，关掉就清空。
+            换设备数据也不会跟过去。
+          </div>
+
+          <p>菜单有一个「恢复成初始菜单」的按钮（页面最下面，要二次确认），会把菜品和分类重置回最初的 13 道。订单和会员不受影响。</p>
+        </section>
+
+        <!-- ================= 8 ================= -->
+        <section class="doc-sec" id="files">
+          <h2>八、文件结构</h2>
+
+          <table>
+            <thead>
+              <tr><th>路径</th><th>作用</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>assets/shop-config.js</code></td><td><strong>你唯一需要手动改的文件</strong>：店铺信息、收款码、会员价、口令</td></tr>
+              <tr><td><code>assets/shop-core.js</code></td><td>数据层：菜单、购物车、订单、取餐号、会员、状态机。里面也有初始菜单 <code>SEED_GOODS</code></td></tr>
+              <tr><td><code>assets/shop-pay.js</code></td><td>收款码组件：微信/支付宝切换</td></tr>
+              <tr><td><code>styles/shop.css</code></td><td>点单、会员、后台的样式</td></tr>
+              <tr><td><code>styles/global.css</code></td><td>全站设计变量（颜色、字体、留白）</td></tr>
+              <tr><td><code>assets/pay-wechat.png</code></td><td>微信收款码（480×480）</td></tr>
+              <tr><td><code>assets/pay-alipay.png</code></td><td>支付宝收款码（480×480）</td></tr>
+              <tr><td><code>tools/MIAOMIAO-WEB.md</code></td><td>接云端的内部方案，不发布到线上</td></tr>
+            </tbody>
+          </table>
+
+          <p>发布用的是 <code>tools/publish.mjs</code>，只上传变了的文件。</p>
+        </section>
+
+        <!-- ================= 9 ================= -->
+        <section class="doc-sec" id="limits">
+          <h2>九、已知限制</h2>
+
+          <table>
+            <thead>
+              <tr><th>限制</th><th>为什么</th><th>怎么解</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>顾客手机下单看不到你改的菜单</td>
+                <td>没有后端，数据在各自浏览器</td>
+                <td>接腾讯云开发</td>
+              </tr>
+              <tr>
+                <td>付款要顾客手动输金额</td>
+                <td>个人收款码是静态码，带不了金额</td>
+                <td>开商家收款码，要营业执照</td>
+              </tr>
+              <tr>
+                <td>手机上扫不了自己的屏幕</td>
+                <td>同一台设备没法拍自己</td>
+                <td>页面有提示：长按存图再从相册识别</td>
+              </tr>
+              <tr>
+                <td>每笔收款要你手动确认</td>
+                <td>个人收款码没有回调通知</td>
+                <td>开商户号接支付回调</td>
+              </tr>
+              <tr>
+                <td>清缓存数据全丢</td>
+                <td>存在 localStorage</td>
+                <td>接云端</td>
+              </tr>
+              <tr>
+                <td>收款码公开在网页上</td>
+                <td>顾客得能看到才能扫</td>
+                <td>只能给打钱，拿不走东西，风险低</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="doc-note">
+            <strong>关于合规</strong>：会员做成「年费」而不是「储值」，是故意的——
+            储值卡属于单用途预付卡，有备案要求；年费不构成预付卡。
+            如果要改成储值，先说一声，会涉及限额和书面约定的问题。
+          </div>
+        </section>
+
+        <!-- ================= 10 ================= -->
+        <section class="doc-sec" id="changelog">
+          <h2>十、变更记录</h2>
+
+          <ul class="doc-log">
+            <li>
+              <span class="d">2026-11-26</span>
+              <span class="t">加了这个使用手册页 <code>manual.html</code>，以后每次改完都会更新这里。</span>
+            </li>
+            <li>
+              <span class="d">2026-11-26</span>
+              <span class="t">新增菜单管理页 <code>menu-admin.html</code>：增删改菜、改价、改库存、上下架、排序、分类管理、恢复初始菜单。</span>
+            </li>
+            <li>
+              <span class="d">2026-11-26</span>
+              <span class="t">收款码换成带慢岛图标的版本。从原码解出内容后重新生成（H 级纠错），并解码验证内容与原码一致。文件从 200 KB 降到 15 KB。</span>
+            </li>
+            <li>
+              <span class="d">2026-11-26</span>
+              <span class="t">加了微信/支付宝两种收款方式，可切换，会记住顾客上次的选择。</span>
+            </li>
+            <li>
+              <span class="d">2026-11-26</span>
+              <span class="t">新增会员模块：年费 100 元 / 365 天，手机号登录，扫码付款填单号，店家确认后生效。</span>
+            </li>
+            <li>
+              <span class="d">2026-11-26</span>
+              <span class="t">点单系统从微信小程序搬到网页：点单、购物车、结算、订单、取餐码、店家确认台。数据层做成可切换（单机 / 云端）。</span>
+            </li>
+          </ul>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>&copy; <span id="year">2026</span> 慢岛生活</span>
+    <nav class="footer-links" aria-label="页脚导航">
+      <a href="order.html">点单</a>
+      <a href="orders.html">店家台</a>
+      <a href="menu-admin.html">菜单管理</a>
+      <a href="member.html">会员</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
