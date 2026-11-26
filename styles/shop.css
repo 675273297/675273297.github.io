@@ -1043,8 +1043,10 @@
 }
 
 .pay-qr {
+  display: block;
   width: min(220px, 62vw);
   height: auto;
+  margin: 0 auto;
   border-radius: var(--radius-sm);
   background: #fff;
   padding: 10px;
@@ -1066,6 +1068,66 @@
   background: var(--card);
 }
 
+/* 支付方式切换：微信 / 支付宝 */
+.pay-methods {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  gap: 5px;
+  padding: 4px;
+  margin: 0 auto 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.pay-method {
+  border: 0;
+  background: none;
+  padding: 7px 20px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+  white-space: nowrap;
+}
+
+.pay-method:hover { color: var(--ink); }
+
+.pay-method.is-on {
+  background: var(--moss);
+  color: #fff;
+}
+
+.pay-methods.is-single .pay-method { cursor: default; }
+
+.pay-payee {
+  margin: 10px 0 0;
+  min-height: 1em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+/* 手机上扫不了自己屏幕，给一条保存图片的引导；桌面端不需要 */
+.pay-mobile-tip {
+  display: none;
+  margin: 14px auto 0;
+  max-width: 24em;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 720px) {
+  .pay-mobile-tip { display: block; }
+}
+
 .pay-amount {
   font-family: var(--font-serif);
   font-size: 34px;
@@ -1080,6 +1142,11 @@
   color: var(--ink-faint);
   line-height: 1.8;
   margin: 8px 0 0;
+}
+
+.pay-caption strong {
+  color: var(--clay);
+  font-weight: 600;
 }
 
 /* ---------- 会员卡 ---------- */
