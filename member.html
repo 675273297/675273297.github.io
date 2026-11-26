@@ -55,6 +55,7 @@
 
 <script src="assets/shop-config.js"></script>
 <script src="assets/shop-core.js"></script>
+<script src="assets/shop-pay.js"></script>
 <script>
 (function () {
   'use strict';
@@ -205,11 +206,6 @@
   function renderJoin(m) {
     var cfg = Shop.memberCfg();
     var p = CFG.pay || {};
-    var qr = cfg.qr || p.qr || '';
-
-    var qrHtml = qr
-      ? '<img class="pay-qr" src="' + esc(qr) + '" alt="收款二维码">'
-      : '<div class="pay-qr-empty">收款码还没设置<br>把收款码图片放到 assets/ 下，<br>再在 shop-config.js 里填上文件名</div>';
 
     var expired = m.status === 'expired';
 
@@ -222,11 +218,7 @@
           '会员按年计费，' + cfg.price + ' 元一年，从店家确认到账那天算起 ' + cfg.days + ' 天。<br>' +
           '这笔钱是会员费，不能抵扣消费。' +
         '</p>' +
-        '<div class="pay-block">' +
-          qrHtml +
-          '<div class="pay-amount">¥' + cfg.price + '</div>' +
-          '<p class="pay-caption">扫码付 ' + cfg.price + ' 元，再把单号填到下面。</p>' +
-        '</div>' +
+        window.MandaoPay.blockHtml(String(cfg.price)) +
         '<div class="sd-field">' +
           '<label class="sd-label" for="proof">付款单号</label>' +
           '<input class="sd-input" id="proof" type="text" autocomplete="off" ' +
@@ -242,6 +234,8 @@
 
       '<p class="sd-hint" style="text-align:center;margin-top:26px">' +
         '<button class="admin-logout" type="button" id="logoutBtn">不是我，换个手机号</button></p>';
+
+    window.MandaoPay.bind(elApp);
 
     var btn = document.getElementById('applyBtn');
     btn.addEventListener('click', function () {
