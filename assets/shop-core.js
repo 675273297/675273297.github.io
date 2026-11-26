@@ -30,7 +30,8 @@
     counter: 'mandao_counter_v1',
     member: 'mandao_member_v1',
     session: 'mandao_session_v1',
-    admin: 'mandao_admin_v1'
+    admin: 'mandao_admin_v1',
+    categories: 'mandao_categories_v1'
   };
 
   function read(key, fallback) {
@@ -144,8 +145,8 @@
   ];
 
   function ensureSeed() {
-    var list = read(K.goods, null);
-    if (!list) write(K.goods, SEED_GOODS);
+    if (!read(K.goods, null)) write(K.goods, SEED_GOODS);
+    if (!read(K.categories, null)) write(K.categories, SEED_CATEGORIES);
   }
 
   /* ============================================================
@@ -165,7 +166,10 @@
   }
 
   function getCategories() {
-    return SEED_CATEGORIES.slice();
+    ensureSeed();
+    return read(K.categories, []).slice().sort(function (a, b) {
+      return (a.sort || 0) - (b.sort || 0);
+    });
   }
 
   /* ============================================================
@@ -226,6 +230,255 @@
       }
     }
     write(K.goods, list);
+  }
+
+  /* ============================================================
+     菜单管理（店家后台用）
+     ============================================================ */
+
+  function bySort(a, b) {
+    return (a.sort || 0) - (b.sort || 0);
+  }
+
+  /** 按「分类顺序 + 分类内顺序」把 sort 重排成 1..n，避免出现并列的 sort */
+  function reindexGoods(list) {
+    var cats = getCategories();
+    var order = {};
+    cats.forEach(function (c, i) { order[c._id] = i; });
+
+    var ordered = list.slice().sort(function (a, b) {
+      var ai = order[a.categoryId];
+      var bi = order[b.categoryId];
+      if (ai === undefined) ai = 999;
+      if (bi === undefined) bi = 999;
+      if (ai !== bi) return ai - bi;
+      return (a.sort || 0) - (b.sort || 0);
+    });
+
+    ordered.forEach(function (g, i) { g.sort = i + 1; });
+    return ordered;
+  }
+
+  function newGoodsId() {
+    return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  }
+
+  function newCategoryId() {
+    return 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  }
+
+  /**
+   * 新增或修改一道菜
+   * d: { _id?, categoryId, name, desc, price(分), emoji, tag, stock, onSale }
+   */
+  function saveGoods(d) {
+    var input = d || {};
+
+    var name = String(input.name || '').trim();
+    if (!name) return { ok: false, msg: '请填写名称' };
+    if (name.length > 24) return { ok: false, msg: '名称最多 24 个字' };
+
+    var price = Math.round(Number(input.price) || 0);
+    if (price <= 0) return { ok: false, msg: '价格要大于 0' };
+    if (price > 100000) return { ok: false, msg: '价格超过 1000 元了，检查一下' };
+
+    var stock = Math.floor(Number(input.stock));
+    if (!isFinite(stock) || stock < 0) return { ok: false, msg: '库存要填 0 或正整数' };
+
+    var cats = getCategories();
+    if (!cats.length) return { ok: false, msg: '还没有分类，先建一个分类' };
+
+    var catId = String(input.categoryId || '');
+    var hit = false;
+    cats.forEach(function (c) { if (c._id === catId) hit = true; });
+    if (!hit) catId = cats[0]._id;
+
+    var list = read(K.goods, []);
+    var item = null;
+
+    if (input._id) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i]._id === input._id) { item = list[i]; break; }
+      }
+      if (!item) return { ok: false, msg: '没找到这道菜' };
+    }
+
+    var fields = {
+      categoryId: catId,
+      name: name,
+      desc: String(input.desc || '').trim().slice(0, 60),
+      price: price,
+      emoji: String(input.emoji || '🍽').trim().slice(0, 4) || '🍽',
+      tag: String(input.tag || '').trim().slice(0, 6),
+      stock: stock,
+      onSale: input.onSale !== false
+    };
+
+    var isNew = !input._id;
+
+    if (isNew) {
+      var maxSort = 0;
+      list.forEach(function (g) { if ((g.sort || 0) > maxSort) maxSort = g.sort; });
+      item = Object.assign({ _id: newGoodsId(), sold: 0, sort: maxSort + 1 }, fields);
+      list.push(item);
+    } else {
+      var prevCat = item.categoryId;
+      Object.assign(item, fields);
+      if (prevCat !== catId) {
+        // 换了分类，排到新分类最后
+        var maxS = 0;
+        list.forEach(function (g) {
+          if (g.categoryId === catId && g._id !== item._id && (g.sort || 0) > maxS) maxS = g.sort;
+        });
+        item.sort = maxS + 1;
+      }
+    }
+
+    write(K.goods, reindexGoods(list));
+    return { ok: true, goods: decorateGoods(item), isNew: isNew };
+  }
+
+  function removeGoods(id) {
+    var list = read(K.goods, []);
+    var next = [];
+    var found = false;
+    list.forEach(function (g) {
+      if (g._id === id) { found = true; return; }
+      next.push(g);
+    });
+    if (!found) return { ok: false, msg: '没找到这道菜' };
+
+    write(K.goods, reindexGoods(next));
+    cartRemove(id);   // 购物车里残留的也清掉，免得下单时找不到
+    return { ok: true };
+  }
+
+  function setGoodsOnSale(id, onSale) {
+    var list = read(K.goods, []);
+    for (var i = 0; i < list.length; i++) {
+      if (list[i]._id === id) {
+        list[i].onSale = !!onSale;
+        write(K.goods, list);
+        return { ok: true, onSale: list[i].onSale };
+      }
+    }
+    return { ok: false, msg: '没找到这道菜' };
+  }
+
+  /** 直接设库存（补货用） */
+  function setGoodsStock(id, stock) {
+    var n = Math.floor(Number(stock));
+    if (!isFinite(n) || n < 0) return { ok: false, msg: '库存要填 0 或正整数' };
+    var list = read(K.goods, []);
+    for (var i = 0; i < list.length; i++) {
+      if (list[i]._id === id) {
+        list[i].stock = n;
+        write(K.goods, list);
+        return { ok: true, stock: n };
+      }
+    }
+    return { ok: false, msg: '没找到这道菜' };
+  }
+
+  /** 分类内上移/下移。dir = -1 上移，1 下移 */
+  function moveGoods(id, dir) {
+    var list = read(K.goods, []);
+    var target = null;
+    list.forEach(function (g) { if (g._id === id) target = g; });
+    if (!target) return { ok: false, msg: '没找到这道菜' };
+
+    var same = list.filter(function (g) {
+      return g.categoryId === target.categoryId;
+    }).sort(bySort);
+
+    var pos = same.indexOf(target);
+    var to = pos + (dir < 0 ? -1 : 1);
+    if (to < 0 || to >= same.length) return { ok: false, msg: '已经到头了' };
+
+    same.splice(pos, 1);
+    same.splice(to, 0, target);
+    same.forEach(function (g, i) { g.sort = i + 1; });
+
+    write(K.goods, reindexGoods(list));
+    return { ok: true };
+  }
+
+  /* ---------------- 分类 ---------------- */
+
+  function saveCategory(d) {
+    var input = d || {};
+    var name = String(input.name || '').trim();
+    if (!name) return { ok: false, msg: '请填写分类名' };
+    if (name.length > 8) return { ok: false, msg: '分类名最多 8 个字' };
+
+    var list = read(K.categories, []);
+    var dup = false;
+    list.forEach(function (c) {
+      if (c.name === name && c._id !== input._id) dup = true;
+    });
+    if (dup) return { ok: false, msg: '已经有同名分类了' };
+
+    if (input._id) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i]._id === input._id) {
+          list[i].name = name;
+          write(K.categories, list);
+          return { ok: true };
+        }
+      }
+      return { ok: false, msg: '没找到这个分类' };
+    }
+
+    var maxSort = 0;
+    list.forEach(function (c) { if ((c.sort || 0) > maxSort) maxSort = c.sort; });
+    list.push({ _id: newCategoryId(), name: name, sort: maxSort + 1 });
+    write(K.categories, list);
+    return { ok: true };
+  }
+
+  function removeCategory(id) {
+    var used = 0;
+    read(K.goods, []).forEach(function (g) {
+      if (g.categoryId === id) used++;
+    });
+    if (used > 0) {
+      return { ok: false, msg: '这个分类下还有 ' + used + ' 道菜，先把它们改到别的分类' };
+    }
+
+    var list = read(K.categories, []);
+    var next = list.filter(function (c) { return c._id !== id; });
+    if (next.length === list.length) return { ok: false, msg: '没找到这个分类' };
+    if (!next.length) return { ok: false, msg: '至少要留一个分类' };
+
+    write(K.categories, next);
+    return { ok: true };
+  }
+
+  function moveCategory(id, dir) {
+    var list = read(K.categories, []).slice().sort(bySort);
+    var pos = -1;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i]._id === id) pos = i;
+    }
+    if (pos < 0) return { ok: false, msg: '没找到这个分类' };
+
+    var to = pos + (dir < 0 ? -1 : 1);
+    if (to < 0 || to >= list.length) return { ok: false, msg: '已经到头了' };
+
+    var item = list.splice(pos, 1)[0];
+    list.splice(to, 0, item);
+    list.forEach(function (c, i) { c.sort = i + 1; });
+
+    write(K.categories, list);
+    write(K.goods, reindexGoods(read(K.goods, [])));
+    return { ok: true };
+  }
+
+  /** 恢复成初始菜单。会覆盖所有改动，谨慎用 */
+  function resetMenu() {
+    write(K.goods, SEED_GOODS);
+    write(K.categories, SEED_CATEGORIES);
+    return { ok: true };
   }
 
   /* ============================================================
@@ -817,6 +1070,17 @@
     getCategories: getCategories,
     getGoods: getGoods,
     findGoods: findGoods,
+
+    // 菜单管理（店家后台）
+    saveGoods: saveGoods,
+    removeGoods: removeGoods,
+    setGoodsOnSale: setGoodsOnSale,
+    setGoodsStock: setGoodsStock,
+    moveGoods: moveGoods,
+    saveCategory: saveCategory,
+    removeCategory: removeCategory,
+    moveCategory: moveCategory,
+    resetMenu: resetMenu,
 
     // 购物车
     cartList: cartList,
