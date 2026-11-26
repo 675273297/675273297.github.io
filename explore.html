@@ -230,7 +230,15 @@
       <aside class="side-panel">
         <div class="hot-head">
           <h2 class="side-title">热搜榜</h2>
-          <span id="hotUpdated" class="hot-updated"></span>
+          <div class="hot-tools">
+            <span id="hotUpdated" class="hot-updated"></span>
+            <button id="hotRefresh" class="hot-refresh" type="button" aria-label="刷新热搜" title="刷新热搜">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M20 11a8 8 0 1 1-2.35-5.65" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+                <path d="M20 4.4V11h-6.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div id="boardTabs" class="board-tabs" role="tablist" aria-label="选择平台"></div>
@@ -267,7 +275,7 @@
 <script src="assets/subdivisions.js"></script>
 <script src="assets/hot-boards.js"></script>
 <script src="assets/region-keywords.js"></script>
-<script src="assets/explore.js?v=7"></script>
+<script src="assets/explore.js?v=8"></script>
 <script>
   document.getElementById('year').textContent = new Date().getFullYear();
 </script>
